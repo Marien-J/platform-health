@@ -129,23 +129,26 @@ def handle_card_click(card_clicks, clear_clicks):
     """Handle platform card clicks and clear filter button."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return None
-    
+        return dash.no_update
+
     triggered_id = ctx.triggered[0]['prop_id']
-    
+    triggered_value = ctx.triggered[0]['value']
+
     # Handle clear button
     if 'clear-filter-btn' in triggered_id:
         return None
-    
-    # Handle card clicks
+
+    # Handle card clicks - only respond to actual clicks (value > 0)
     if 'platform-card' in triggered_id:
+        if not triggered_value or triggered_value == 0:
+            return dash.no_update
         import json
         # Extract the platform id from the triggered component
         prop_id = triggered_id.rsplit('.', 1)[0]
         component_id = json.loads(prop_id)
         return component_id['index']
-    
-    return None
+
+    return dash.no_update
 
 
 @callback(
