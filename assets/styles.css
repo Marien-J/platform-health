@@ -65,6 +65,18 @@ body {
     border-radius: 50%;
 }
 
+.summary-separator {
+    width: 2px;
+    height: 24px;
+    background-color: #D1D5DB;
+    margin: 0 8px;
+}
+
+.platform-status {
+    font-size: 13px;
+    color: #6B7280;
+}
+
 /* Platform Cards */
 .platform-cards-container {
     display: flex;
