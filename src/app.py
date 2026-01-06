@@ -4,7 +4,7 @@ A Dash application for monitoring platform health across EDLAP, SAP B/W, Tableau
 """
 
 import dash
-from dash import html, dcc, callback, Output, Input, State, clientside_callback, ClientsideFunction
+from dash import html, dcc, callback, Output, Input
 import dash_bootstrap_components as dbc
 from datetime import datetime
 import os
@@ -28,8 +28,7 @@ app = dash.Dash(
     ],
     assets_folder='../assets',
     title='Platform Health Dashboard',
-    update_title='Loading...',
-    suppress_callback_exceptions=True
+    update_title='Loading...'
 )
 
 # For deployment
@@ -40,9 +39,9 @@ app.layout = dbc.Container([
     # Store for selected platform (no default filter - show all tickets)
     dcc.Store(id='selected-platform', data=None, storage_type='memory'),
 
-    # Store for card order (persists across page reloads)
+    # Store for card order (persists in localStorage)
     dcc.Store(id='card-order', data=['edlap', 'sapbw', 'tableau', 'alteryx'], storage_type='local'),
-    
+
     # Header
     dbc.Row([
         dbc.Col([
@@ -53,28 +52,13 @@ app.layout = dbc.Container([
             )
         ])
     ], className="header-row"),
-    
+
     # Summary Bar
     html.Div(id='summary-bar', className="summary-bar"),
-    
-    # Platform Cards (sortable container) - populated by callback
-    html.Div(
-        id='platform-cards',
-        className="platform-cards-container",
-        children=[
-            html.Div(
-                create_platform_card(p, False),
-                id={'type': 'platform-card', 'index': p['id']},
-                n_clicks=0,
-                className="platform-card-wrapper",
-                **{'data-platform-id': p['id']}
-            ) for p in get_platforms()
-        ]
-    ),
 
-    # Hidden div to trigger sortable initialization
-    html.Div(id='sortable-init', style={'display': 'none'}),
-    
+    # Platform Cards
+    html.Div(id='platform-cards', className="platform-cards-container"),
+
     # Drill-down Section
     dbc.Card([
         dbc.CardHeader([
@@ -92,12 +76,12 @@ app.layout = dbc.Container([
             html.Div(id='ticket-table')
         ])
     ], className="ticket-card"),
-    
+
     # Footer Note
     dbc.Alert([
         html.Strong("Dashboard Note: "),
-        "Click any platform card to filter tickets. Status thresholds (Healthy/Attention/Critical) ",
-        "are configurable based on agreed business rules."
+        "Click any platform card to filter tickets. Drag cards to reorder. ",
+        "Status thresholds (Healthy/Attention/Critical) are configurable based on agreed business rules."
     ], color="info", className="footer-note"),
 
     # Ticket Detail Modal
@@ -122,20 +106,18 @@ def update_summary_bar(_):
 
 @callback(
     Output('platform-cards', 'children'),
-    Output('sortable-init', 'children'),
     Input('selected-platform', 'data'),
-    State('card-order', 'data')
+    Input('card-order', 'data')
 )
 def update_platform_cards(selected_platform_id, card_order):
-    """Render all platform cards."""
+    """Render all platform cards in the specified order."""
     platforms = get_platforms()
     platform_dict = {p['id']: p for p in platforms}
 
-    # Use stored order, falling back to default if order is invalid
+    # Use stored order, falling back to default if invalid
     if not card_order:
         card_order = ['edlap', 'sapbw', 'tableau', 'alteryx']
 
-    # Build cards based on order
     cards = []
     for platform_id in card_order:
         if platform_id in platform_dict:
@@ -150,10 +132,7 @@ def update_platform_cards(selected_platform_id, card_order):
                     **{'data-platform-id': platform['id']}
                 )
             )
-
-    # Return cards and a timestamp to trigger sortable re-init
-    import time
-    return cards, str(time.time())
+    return cards
 
 
 @callback(
@@ -198,7 +177,7 @@ def update_ticket_section(selected_platform_id):
     """Update ticket section based on selected platform."""
     platforms = get_platforms()
     tickets = get_tickets()
-    
+
     if selected_platform_id:
         platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
         platform_name = platform['name'] if platform else 'Unknown'
@@ -209,7 +188,7 @@ def update_ticket_section(selected_platform_id):
         title = "All Open Tickets"
         btn_style = {'display': 'none'}
         filtered_tickets = tickets
-    
+
     return title, btn_style, create_ticket_table(filtered_tickets)
 
 
