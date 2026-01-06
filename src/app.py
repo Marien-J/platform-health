@@ -56,7 +56,21 @@ app.layout = dbc.Container([
     html.Div(id='summary-bar', className="summary-bar"),
     
     # Platform Cards (draggable grid)
-    html.Div(id='platform-cards-container', className="platform-cards-container"),
+    html.Div([
+        dash_draggable.GridLayout(
+            id='draggable-cards',
+            children=[],
+            layout=[],
+            gridCols=12,
+            width=1200,
+            height=280,
+            isDraggable=True,
+            isResizable=False,
+            compactType='horizontal',
+            preventCollision=False,
+            className="draggable-grid"
+        )
+    ], className="platform-cards-container"),
     
     # Drill-down Section
     dbc.Card([
@@ -104,7 +118,8 @@ def update_summary_bar(_):
 
 
 @callback(
-    Output('platform-cards-container', 'children'),
+    Output('draggable-cards', 'children'),
+    Output('draggable-cards', 'layout'),
     Input('selected-platform', 'data'),
     Input('card-order', 'data')
 )
@@ -143,19 +158,7 @@ def update_platform_cards(selected_platform_id, card_order):
                 'isResizable': False
             })
 
-    return dash_draggable.GridLayout(
-        id='draggable-cards',
-        children=cards,
-        layout=layout,
-        gridCols=12,
-        width=1200,
-        height=280,
-        isDraggable=True,
-        isResizable=False,
-        compactType='horizontal',
-        preventCollision=False,
-        className="draggable-grid"
-    )
+    return cards, layout
 
 
 @callback(
