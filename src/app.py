@@ -4,8 +4,9 @@ A Dash application for monitoring platform health across EDLAP, SAP B/W, Tableau
 """
 
 import dash
-from dash import html, dcc, callback, Output, Input
+from dash import html, dcc, callback, Output, Input, State
 import dash_bootstrap_components as dbc
+import dash_draggable
 from datetime import datetime
 import os
 
@@ -53,8 +54,8 @@ app.layout = dbc.Container([
     # Summary Bar
     html.Div(id='summary-bar', className="summary-bar"),
     
-    # Platform Cards
-    html.Div(id='platform-cards', className="platform-cards-container"),
+    # Platform Cards (draggable grid)
+    html.Div(id='platform-cards-container', className="platform-cards-container"),
     
     # Drill-down Section
     dbc.Card([
@@ -102,12 +103,12 @@ def update_summary_bar(_):
 
 
 @callback(
-    Output('platform-cards', 'children'),
+    Output('platform-cards-container', 'children'),
     Input('selected-platform', 'data'),
     Input('card-order', 'data')
 )
 def update_platform_cards(selected_platform_id, card_order):
-    """Render all platform cards in the specified order."""
+    """Render all platform cards in a draggable grid."""
     platforms = get_platforms()
     platform_dict = {p['id']: p for p in platforms}
 
@@ -115,8 +116,10 @@ def update_platform_cards(selected_platform_id, card_order):
     if not card_order:
         card_order = ['edlap', 'sapbw', 'tableau', 'alteryx']
 
+    # Build cards and layout based on order
     cards = []
-    for platform_id in card_order:
+    layout = []
+    for i, platform_id in enumerate(card_order):
         if platform_id in platform_dict:
             platform = platform_dict[platform_id]
             is_selected = platform['id'] == selected_platform_id
@@ -126,11 +129,49 @@ def update_platform_cards(selected_platform_id, card_order):
                     id={'type': 'platform-card', 'index': platform['id']},
                     n_clicks=0,
                     className="platform-card-wrapper",
-                    draggable='true',
-                    **{'data-platform-id': platform['id']}
+                    key=platform_id
                 )
             )
-    return cards
+            # Each card is 3 columns wide in a 12-column grid
+            layout.append({
+                'i': platform_id,
+                'x': i * 3,
+                'y': 0,
+                'w': 3,
+                'h': 2,
+                'isResizable': False
+            })
+
+    return dash_draggable.GridLayout(
+        id='draggable-cards',
+        children=cards,
+        layout=layout,
+        cols=12,
+        rowHeight=120,
+        width=1200,
+        isDraggable=True,
+        isResizable=False,
+        compactType='horizontal',
+        preventCollision=False,
+        className="draggable-grid"
+    )
+
+
+@callback(
+    Output('card-order', 'data'),
+    Input('draggable-cards', 'layout'),
+    prevent_initial_call=True
+)
+def update_card_order(layout):
+    """Update card order when user drags cards to new positions."""
+    if not layout:
+        return dash.no_update
+
+    # Sort layout items by x position to get the new order
+    sorted_items = sorted(layout, key=lambda item: item['x'])
+    new_order = [item['i'] for item in sorted_items]
+
+    return new_order
 
 
 @callback(

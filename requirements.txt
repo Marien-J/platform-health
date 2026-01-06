@@ -1,6 +1,7 @@
 # Core dependencies
 dash==2.14.2
 dash-bootstrap-components==1.5.0
+dash-draggable==0.1.2
 pandas==2.1.4
 gunicorn==21.2.0
 

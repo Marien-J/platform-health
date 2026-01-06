@@ -79,64 +79,38 @@ body {
 
 /* Platform Cards */
 .platform-cards-container {
-    display: flex;
-    gap: 16px;
     margin-bottom: 24px;
-    flex-wrap: wrap;
+    min-height: 280px;
+}
+
+/* Draggable Grid Styles */
+.draggable-grid {
+    margin: 0 auto;
+}
+
+.draggable-grid .react-grid-item {
+    transition: transform 0.2s ease;
+}
+
+.draggable-grid .react-grid-item.react-draggable-dragging {
+    z-index: 100;
+    opacity: 0.9;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.draggable-grid .react-grid-placeholder {
+    background-color: #3B82F6;
+    opacity: 0.2;
+    border-radius: 12px;
 }
 
 .platform-card-wrapper {
-    flex: 1;
-    min-width: 240px;
-    max-width: 320px;
+    height: 100%;
     cursor: grab;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    position: relative;
 }
 
 .platform-card-wrapper:active {
     cursor: grabbing;
-}
-
-/* Drag and Drop States */
-.platform-card-wrapper.dragging {
-    opacity: 0.5;
-    transform: scale(0.98);
-    cursor: grabbing;
-}
-
-.platform-card-wrapper.drag-over {
-    /* Base drag-over state */
-}
-
-.platform-card-wrapper.drag-over-left {
-    transform: translateX(8px);
-}
-
-.platform-card-wrapper.drag-over-left::before {
-    content: '';
-    position: absolute;
-    left: -8px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background-color: #3B82F6;
-    border-radius: 2px;
-}
-
-.platform-card-wrapper.drag-over-right {
-    transform: translateX(-8px);
-}
-
-.platform-card-wrapper.drag-over-right::after {
-    content: '';
-    position: absolute;
-    right: -8px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background-color: #3B82F6;
-    border-radius: 2px;
 }
 
 .platform-card {
