@@ -79,9 +79,10 @@ app.layout = dbc.Container([
     Input('selected-platform', 'data')
 )
 def update_summary_bar(_):
-    """Update the summary bar with current counts."""
+    """Update the summary bar with current counts and platform statuses."""
     counts = get_summary_counts()
-    return create_summary_bar(counts)
+    platforms = get_platforms()
+    return create_summary_bar(counts, platforms)
 
 
 @callback(

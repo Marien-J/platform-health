@@ -107,28 +107,55 @@ def create_platform_card(platform: Dict[str, Any], is_selected: bool = False) ->
     ], className="platform-card", style=card_style)
 
 
-def create_summary_bar(counts: Dict[str, int]) -> html.Div:
-    """Create the summary bar showing overall counts."""
-    return html.Div([
+def create_summary_bar(counts: Dict[str, int], platforms: List[Dict[str, Any]] = None) -> html.Div:
+    """Create the summary bar showing overall counts and individual platform statuses."""
+    items = []
+
+    # Add overall counts
+    items.extend([
         html.Div([
             html.Div(className="summary-dot", style={'backgroundColor': STATUS_COLORS['healthy']['bg']}),
             html.Span([html.Strong(str(counts['healthy'])), " Healthy"])
         ], className="summary-item"),
-        
+
         html.Div([
             html.Div(className="summary-dot", style={'backgroundColor': STATUS_COLORS['attention']['bg']}),
             html.Span([html.Strong(str(counts['attention'])), " Attention"])
         ], className="summary-item"),
-        
+
         html.Div([
             html.Div(className="summary-dot", style={'backgroundColor': STATUS_COLORS['critical']['bg']}),
             html.Span([html.Strong(str(counts['critical'])), " Critical"])
-        ], className="summary-item"),
-        
+        ], className="summary-item")
+    ])
+
+    # Add separator
+    if platforms:
+        items.append(html.Div(className="summary-separator"))
+
+    # Add individual platform statuses
+    if platforms:
+        for platform in platforms:
+            status = platform['status']
+            colors = STATUS_COLORS.get(status, STATUS_COLORS['healthy'])
+            items.append(
+                html.Div([
+                    html.Div(className="summary-dot", style={'backgroundColor': colors['bg']}),
+                    html.Span([
+                        html.Strong(platform['name']),
+                        f" - {platform['status_label']}"
+                    ])
+                ], className="summary-item platform-status")
+            )
+
+    # Add total tickets at the end
+    items.append(
         html.Div([
             html.Span(["Total Open Tickets: ", html.Strong(str(counts['total_tickets']))])
         ], className="summary-item ms-auto")
-    ], className="summary-bar-inner")
+    )
+
+    return html.Div(items, className="summary-bar-inner")
 
 
 def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
