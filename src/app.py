@@ -60,7 +60,12 @@ app.layout = dbc.Container([
         dash_draggable.GridLayout(
             id='draggable-cards',
             children=[],
-            layout=[],
+            layout=[
+                {'i': 'edlap', 'x': 0, 'y': 0, 'w': 3, 'h': 2},
+                {'i': 'sapbw', 'x': 3, 'y': 0, 'w': 3, 'h': 2},
+                {'i': 'tableau', 'x': 6, 'y': 0, 'w': 3, 'h': 2},
+                {'i': 'alteryx', 'x': 9, 'y': 0, 'w': 3, 'h': 2},
+            ],
             gridCols=12,
             width=1200,
             height=280,
@@ -68,6 +73,7 @@ app.layout = dbc.Container([
             isResizable=False,
             compactType='horizontal',
             preventCollision=False,
+            save=True,
             className="draggable-grid"
         )
     ], className="platform-cards-container"),
@@ -119,9 +125,8 @@ def update_summary_bar(_):
 
 @callback(
     Output('draggable-cards', 'children'),
-    Output('draggable-cards', 'layout'),
     Input('selected-platform', 'data'),
-    Input('card-order', 'data')
+    State('card-order', 'data')
 )
 def update_platform_cards(selected_platform_id, card_order):
     """Render all platform cards in a draggable grid."""
@@ -132,9 +137,8 @@ def update_platform_cards(selected_platform_id, card_order):
     if not card_order:
         card_order = ['edlap', 'sapbw', 'tableau', 'alteryx']
 
-    # Build cards and layout based on order
+    # Build cards based on order
     cards = []
-    layout = []
     for i, platform_id in enumerate(card_order):
         if platform_id in platform_dict:
             platform = platform_dict[platform_id]
@@ -148,17 +152,8 @@ def update_platform_cards(selected_platform_id, card_order):
                     key=platform_id
                 )
             )
-            # Each card is 3 columns wide in a 12-column grid
-            layout.append({
-                'i': platform_id,
-                'x': i * 3,
-                'y': 0,
-                'w': 3,
-                'h': 2,
-                'isResizable': False
-            })
 
-    return cards, layout
+    return cards
 
 
 @callback(
