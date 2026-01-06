@@ -33,8 +33,8 @@ server = app.server
 
 # Layout
 app.layout = dbc.Container([
-    # Store for selected platform
-    dcc.Store(id='selected-platform', data=None),
+    # Store for selected platform (no default filter - show all tickets)
+    dcc.Store(id='selected-platform', data=None, storage_type='memory'),
     
     # Header
     dbc.Row([
