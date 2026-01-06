@@ -35,6 +35,9 @@ server = app.server
 app.layout = dbc.Container([
     # Store for selected platform (no default filter - show all tickets)
     dcc.Store(id='selected-platform', data=None, storage_type='memory'),
+
+    # Store for card order (persists across page reloads)
+    dcc.Store(id='card-order', data=['edlap', 'sapbw', 'tableau', 'alteryx'], storage_type='local'),
     
     # Header
     dbc.Row([
@@ -100,22 +103,33 @@ def update_summary_bar(_):
 
 @callback(
     Output('platform-cards', 'children'),
-    Input('selected-platform', 'data')
+    Input('selected-platform', 'data'),
+    Input('card-order', 'data')
 )
-def update_platform_cards(selected_platform_id):
-    """Render all platform cards."""
+def update_platform_cards(selected_platform_id, card_order):
+    """Render all platform cards in the specified order."""
     platforms = get_platforms()
+    platform_dict = {p['id']: p for p in platforms}
+
+    # Use stored order, falling back to default if order is invalid
+    if not card_order:
+        card_order = ['edlap', 'sapbw', 'tableau', 'alteryx']
+
     cards = []
-    for platform in platforms:
-        is_selected = platform['id'] == selected_platform_id
-        cards.append(
-            html.Div(
-                create_platform_card(platform, is_selected),
-                id={'type': 'platform-card', 'index': platform['id']},
-                n_clicks=0,
-                className="platform-card-wrapper"
+    for platform_id in card_order:
+        if platform_id in platform_dict:
+            platform = platform_dict[platform_id]
+            is_selected = platform['id'] == selected_platform_id
+            cards.append(
+                html.Div(
+                    create_platform_card(platform, is_selected),
+                    id={'type': 'platform-card', 'index': platform['id']},
+                    n_clicks=0,
+                    className="platform-card-wrapper",
+                    draggable='true',
+                    **{'data-platform-id': platform['id']}
+                )
             )
-        )
     return cards
 
 

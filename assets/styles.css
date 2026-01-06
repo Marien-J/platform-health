@@ -89,6 +89,54 @@ body {
     flex: 1;
     min-width: 240px;
     max-width: 320px;
+    cursor: grab;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    position: relative;
+}
+
+.platform-card-wrapper:active {
+    cursor: grabbing;
+}
+
+/* Drag and Drop States */
+.platform-card-wrapper.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+    cursor: grabbing;
+}
+
+.platform-card-wrapper.drag-over {
+    /* Base drag-over state */
+}
+
+.platform-card-wrapper.drag-over-left {
+    transform: translateX(8px);
+}
+
+.platform-card-wrapper.drag-over-left::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #3B82F6;
+    border-radius: 2px;
+}
+
+.platform-card-wrapper.drag-over-right {
+    transform: translateX(-8px);
+}
+
+.platform-card-wrapper.drag-over-right::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #3B82F6;
+    border-radius: 2px;
 }
 
 .platform-card {
