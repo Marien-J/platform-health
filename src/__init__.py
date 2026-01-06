@@ -1,0 +1,1 @@
+"""Platform Health Dashboard application."""

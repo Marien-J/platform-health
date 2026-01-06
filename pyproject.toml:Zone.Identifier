@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://claude.ai/chat/bf619377-814a-43a7-b319-560f0c3b3bfc
+HostUrl=https://claude.ai/api/organizations/facc4f89-e212-4026-9279-d285acb20d79/conversations/bf619377-814a-43a7-b319-560f0c3b3bfc/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fpyproject.toml

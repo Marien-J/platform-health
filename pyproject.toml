@@ -1,0 +1,84 @@
+[tool.poetry]
+name = "platform-health-dashboard"
+version = "1.0.0"
+description = "Real-time health monitoring dashboard for enterprise data platforms (EDLAP, SAP B/W, Tableau, Alteryx)"
+authors = ["Platform & Architecture Team"]
+readme = "README.md"
+license = "Proprietary"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+dash = "^2.14.2"
+dash-bootstrap-components = "^1.5.0"
+pandas = "^2.1.4"
+gunicorn = "^21.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+black = "^23.12.1"
+flake8 = "^6.1.0"
+mypy = "^1.8.0"
+isort = "^5.13.2"
+
+[tool.poetry.group.integrations]
+optional = true
+
+[tool.poetry.group.integrations.dependencies]
+pyodbc = "^5.0.1"
+databricks-sdk = "^0.12.0"
+tableauserverclient = "^0.28"
+requests = "^2.31.0"
+
+[tool.poetry.scripts]
+dashboard = "src.app:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+    | \.venv
+    | build
+    | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
