@@ -26,7 +26,8 @@ app = dash.Dash(
     ],
     assets_folder='../assets',
     title='Platform Health Dashboard',
-    update_title='Loading...'
+    update_title='Loading...',
+    suppress_callback_exceptions=True  # GridLayout is created dynamically
 )
 
 # For deployment
