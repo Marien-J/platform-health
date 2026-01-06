@@ -182,9 +182,14 @@ def handle_ticket_click(row_clicks):
     """Handle ticket row clicks to select a ticket."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return None
+        return dash.no_update
 
     triggered_id = ctx.triggered[0]['prop_id']
+    triggered_value = ctx.triggered[0]['value']
+
+    # Only respond to actual clicks (value > 0), not table re-renders
+    if not triggered_value or triggered_value == 0:
+        return dash.no_update
 
     # Check if any row was actually clicked
     if 'ticket-row' in triggered_id:
@@ -199,7 +204,7 @@ def handle_ticket_click(row_clicks):
         if ticket:
             return ticket
 
-    return None
+    return dash.no_update
 
 
 @callback(
