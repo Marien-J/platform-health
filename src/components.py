@@ -6,17 +6,17 @@ from dash import html
 import dash_bootstrap_components as dbc
 from typing import List, Dict, Any
 
-# Color schemes for status indicators
+# ALDI colour schemes for status indicators
 STATUS_COLORS = {
-    'healthy': {'bg': '#059669', 'light': '#D1FAE5', 'text': '#065F46'},
-    'attention': {'bg': '#D97706', 'light': '#FEF3C7', 'text': '#92400E'},
-    'critical': {'bg': '#DC2626', 'light': '#FEE2E2', 'text': '#991B1B'}
+    'healthy': {'bg': '#439539', 'light': '#E8F5E6', 'text': '#2D6626'},
+    'attention': {'bg': '#FF7800', 'light': '#FFF3E6', 'text': '#B35500'},
+    'critical': {'bg': '#D70000', 'light': '#FDEDED', 'text': '#990000'}
 }
 
 PRIORITY_COLORS = {
-    'High': {'bg': '#FEE2E2', 'text': '#991B1B'},
-    'Medium': {'bg': '#FEF3C7', 'text': '#92400E'},
-    'Low': {'bg': '#E5E7EB', 'text': '#374151'}
+    'High': {'bg': '#FDEDED', 'text': '#D70000'},
+    'Medium': {'bg': '#FFF3E6', 'text': '#FF7800'},
+    'Low': {'bg': '#E5E7EB', 'text': '#393A34'}
 }
 
 
@@ -48,7 +48,7 @@ def create_platform_card(platform: Dict[str, Any], is_selected: bool = False) ->
     card_style = {
         'cursor': 'pointer',
         'transition': 'all 0.2s ease',
-        'border': f"2px solid {colors['bg'] if is_selected else '#E5E7EB'}",
+        'border': f"2px solid {colors['bg'] if is_selected else '#D1CAB4'}",
         'backgroundColor': colors['light'] if is_selected else '#FFFFFF'
     }
     
