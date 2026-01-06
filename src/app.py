@@ -4,9 +4,8 @@ A Dash application for monitoring platform health across EDLAP, SAP B/W, Tableau
 """
 
 import dash
-from dash import html, dcc, callback, Output, Input, State
+from dash import html, dcc, callback, Output, Input, State, clientside_callback, ClientsideFunction
 import dash_bootstrap_components as dbc
-import dash_draggable
 from datetime import datetime
 import os
 
@@ -24,10 +23,13 @@ app = dash.Dash(
         dbc.themes.BOOTSTRAP,
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
     ],
+    external_scripts=[
+        "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"
+    ],
     assets_folder='../assets',
     title='Platform Health Dashboard',
     update_title='Loading...',
-    suppress_callback_exceptions=True  # GridLayout is created dynamically
+    suppress_callback_exceptions=True
 )
 
 # For deployment
@@ -55,28 +57,11 @@ app.layout = dbc.Container([
     # Summary Bar
     html.Div(id='summary-bar', className="summary-bar"),
     
-    # Platform Cards (draggable grid)
-    html.Div([
-        dash_draggable.GridLayout(
-            id='draggable-cards',
-            children=[],
-            layout=[
-                {'i': 'edlap', 'x': 0, 'y': 0, 'w': 3, 'h': 2},
-                {'i': 'sapbw', 'x': 3, 'y': 0, 'w': 3, 'h': 2},
-                {'i': 'tableau', 'x': 6, 'y': 0, 'w': 3, 'h': 2},
-                {'i': 'alteryx', 'x': 9, 'y': 0, 'w': 3, 'h': 2},
-            ],
-            gridCols=12,
-            width=1200,
-            height=280,
-            isDraggable=True,
-            isResizable=False,
-            compactType='horizontal',
-            preventCollision=False,
-            save=True,
-            className="draggable-grid"
-        )
-    ], className="platform-cards-container"),
+    # Platform Cards (sortable container)
+    html.Div(id='platform-cards', className="platform-cards-container"),
+
+    # Hidden div to trigger sortable initialization
+    html.Div(id='sortable-init', style={'display': 'none'}),
     
     # Drill-down Section
     dbc.Card([
@@ -124,12 +109,13 @@ def update_summary_bar(_):
 
 
 @callback(
-    Output('draggable-cards', 'children'),
+    Output('platform-cards', 'children'),
+    Output('sortable-init', 'children'),
     Input('selected-platform', 'data'),
-    State('card-order', 'data')
+    Input('card-order', 'data')
 )
 def update_platform_cards(selected_platform_id, card_order):
-    """Render all platform cards in a draggable grid."""
+    """Render all platform cards."""
     platforms = get_platforms()
     platform_dict = {p['id']: p for p in platforms}
 
@@ -139,7 +125,7 @@ def update_platform_cards(selected_platform_id, card_order):
 
     # Build cards based on order
     cards = []
-    for i, platform_id in enumerate(card_order):
+    for platform_id in card_order:
         if platform_id in platform_dict:
             platform = platform_dict[platform_id]
             is_selected = platform['id'] == selected_platform_id
@@ -149,28 +135,13 @@ def update_platform_cards(selected_platform_id, card_order):
                     id={'type': 'platform-card', 'index': platform['id']},
                     n_clicks=0,
                     className="platform-card-wrapper",
-                    key=platform_id
+                    **{'data-platform-id': platform['id']}
                 )
             )
 
-    return cards
-
-
-@callback(
-    Output('card-order', 'data'),
-    Input('draggable-cards', 'layout'),
-    prevent_initial_call=True
-)
-def update_card_order(layout):
-    """Update card order when user drags cards to new positions."""
-    if not layout:
-        return dash.no_update
-
-    # Sort layout items by x position to get the new order
-    sorted_items = sorted(layout, key=lambda item: item['x'])
-    new_order = [item['i'] for item in sorted_items]
-
-    return new_order
+    # Return cards and a timestamp to trigger sortable re-init
+    import time
+    return cards, str(time.time())
 
 
 @callback(

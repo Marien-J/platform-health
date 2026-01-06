@@ -79,38 +79,37 @@ body {
 
 /* Platform Cards */
 .platform-cards-container {
+    display: flex;
+    gap: 16px;
     margin-bottom: 24px;
-    min-height: 280px;
-}
-
-/* Draggable Grid Styles */
-.draggable-grid {
-    margin: 0 auto;
-}
-
-.draggable-grid .react-grid-item {
-    transition: transform 0.2s ease;
-}
-
-.draggable-grid .react-grid-item.react-draggable-dragging {
-    z-index: 100;
-    opacity: 0.9;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.draggable-grid .react-grid-placeholder {
-    background-color: #3B82F6;
-    opacity: 0.2;
-    border-radius: 12px;
+    flex-wrap: wrap;
 }
 
 .platform-card-wrapper {
-    height: 100%;
+    flex: 1;
+    min-width: 240px;
+    max-width: 320px;
     cursor: grab;
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .platform-card-wrapper:active {
     cursor: grabbing;
+}
+
+/* SortableJS drag states */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+.sortable-chosen {
+    cursor: grabbing;
+}
+
+.sortable-drag {
+    opacity: 0.9;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
 }
 
 .platform-card {
