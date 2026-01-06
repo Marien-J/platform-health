@@ -57,8 +57,20 @@ app.layout = dbc.Container([
     # Summary Bar
     html.Div(id='summary-bar', className="summary-bar"),
     
-    # Platform Cards (sortable container)
-    html.Div(id='platform-cards', className="platform-cards-container"),
+    # Platform Cards (sortable container) - populated by callback
+    html.Div(
+        id='platform-cards',
+        className="platform-cards-container",
+        children=[
+            html.Div(
+                create_platform_card(p, False),
+                id={'type': 'platform-card', 'index': p['id']},
+                n_clicks=0,
+                className="platform-card-wrapper",
+                **{'data-platform-id': p['id']}
+            ) for p in get_platforms()
+        ]
+    ),
 
     # Hidden div to trigger sortable initialization
     html.Div(id='sortable-init', style={'display': 'none'}),
@@ -112,7 +124,7 @@ def update_summary_bar(_):
     Output('platform-cards', 'children'),
     Output('sortable-init', 'children'),
     Input('selected-platform', 'data'),
-    Input('card-order', 'data')
+    State('card-order', 'data')
 )
 def update_platform_cards(selected_platform_id, card_order):
     """Render all platform cards."""
