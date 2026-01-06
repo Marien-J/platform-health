@@ -10,12 +10,19 @@ from datetime import datetime
 import os
 
 from data import get_platforms, get_tickets, get_summary_counts
-from components import create_platform_card, create_ticket_table, create_summary_bar
+from components import (
+    create_platform_card, create_ticket_table, create_summary_bar,
+    create_ticket_detail_modal, get_platform_name, get_servicenow_url,
+    STATUS_COLORS, PRIORITY_COLORS
+)
 
 # Initialize the Dash app
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    ],
     assets_folder='../assets',
     title='Platform Health Dashboard',
     update_title='Loading...'
@@ -69,8 +76,14 @@ app.layout = dbc.Container([
         html.Strong("Dashboard Note: "),
         "Click any platform card to filter tickets. Status thresholds (Healthy/Attention/Critical) ",
         "are configurable based on agreed business rules."
-    ], color="info", className="footer-note")
-    
+    ], color="info", className="footer-note"),
+
+    # Ticket Detail Modal
+    create_ticket_detail_modal(),
+
+    # Store for selected ticket data
+    dcc.Store(id='selected-ticket', data=None)
+
 ], fluid=True, className="dashboard-container")
 
 
@@ -158,6 +171,115 @@ def update_ticket_section(selected_platform_id):
         filtered_tickets = tickets
     
     return title, btn_style, create_ticket_table(filtered_tickets)
+
+
+@callback(
+    Output('selected-ticket', 'data'),
+    Input({'type': 'ticket-row', 'index': dash.ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def handle_ticket_click(row_clicks):
+    """Handle ticket row clicks to select a ticket."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return None
+
+    triggered_id = ctx.triggered[0]['prop_id']
+
+    # Check if any row was actually clicked
+    if 'ticket-row' in triggered_id:
+        import json
+        prop_id = triggered_id.rsplit('.', 1)[0]
+        component_id = json.loads(prop_id)
+        ticket_id = component_id['index']
+
+        # Find the ticket data
+        tickets = get_tickets()
+        ticket = next((t for t in tickets if t['id'] == ticket_id), None)
+        if ticket:
+            return ticket
+
+    return None
+
+
+@callback(
+    Output('ticket-detail-modal', 'is_open'),
+    Output('modal-ticket-title', 'children'),
+    Output('modal-ticket-id', 'children'),
+    Output('modal-ticket-id', 'href'),
+    Output('modal-platform-badge', 'children'),
+    Output('modal-platform-badge', 'style'),
+    Output('modal-priority-badge', 'children'),
+    Output('modal-priority-badge', 'style'),
+    Output('modal-age', 'children'),
+    Output('modal-created-date', 'children'),
+    Output('modal-owner', 'children'),
+    Output('modal-last-updated', 'children'),
+    Output('modal-description', 'children'),
+    Output('modal-servicenow-btn', 'href'),
+    Input('selected-ticket', 'data'),
+    Input('modal-close-btn', 'n_clicks'),
+    Input('modal-footer-close-btn', 'n_clicks'),
+    prevent_initial_call=True
+)
+def update_modal(ticket_data, close_btn, footer_close_btn):
+    """Update modal content and visibility based on selected ticket."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+
+    triggered_id = ctx.triggered[0]['prop_id']
+
+    # Handle close buttons
+    if 'close-btn' in triggered_id:
+        return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+
+    # Handle ticket selection
+    if ticket_data:
+        ticket_id = ticket_data['id']
+        servicenow_url = get_servicenow_url(ticket_id)
+
+        # Get platform info
+        platforms = get_platforms()
+        platform = next((p for p in platforms if p['id'] == ticket_data['platform']), None)
+        platform_name = get_platform_name(ticket_data['platform'])
+        platform_status = platform['status'] if platform else 'healthy'
+        platform_colors = STATUS_COLORS.get(platform_status, STATUS_COLORS['healthy'])
+
+        platform_badge_style = {
+            'backgroundColor': platform_colors['light'],
+            'color': platform_colors['text'],
+            'padding': '4px 12px',
+            'borderRadius': '20px',
+            'fontSize': '13px',
+            'fontWeight': '600'
+        }
+
+        # Priority styling
+        priority_colors = PRIORITY_COLORS.get(ticket_data['priority'], PRIORITY_COLORS['Low'])
+        priority_style = {
+            'backgroundColor': priority_colors['bg'],
+            'color': priority_colors['text']
+        }
+
+        return (
+            True,  # is_open
+            ticket_data['title'],  # modal-ticket-title
+            ticket_id,  # modal-ticket-id children
+            servicenow_url,  # modal-ticket-id href
+            platform_name,  # modal-platform-badge children
+            platform_badge_style,  # modal-platform-badge style
+            ticket_data['priority'],  # modal-priority-badge children
+            priority_style,  # modal-priority-badge style
+            ticket_data['age'],  # modal-age
+            ticket_data.get('created_date', 'N/A'),  # modal-created-date
+            ticket_data['owner'],  # modal-owner
+            ticket_data.get('last_updated', 'N/A'),  # modal-last-updated
+            ticket_data.get('description', 'No description available.'),  # modal-description
+            servicenow_url  # modal-servicenow-btn href
+        )
+
+    return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
 
 
 if __name__ == '__main__':

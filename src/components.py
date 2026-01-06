@@ -181,13 +181,12 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
     rows = []
     for ticket in tickets:
         priority_colors = PRIORITY_COLORS.get(ticket['priority'], PRIORITY_COLORS['Low'])
-        
+
         rows.append(
             html.Tr([
                 html.Td(
-                    html.A(
+                    html.Span(
                         ticket['id'],
-                        href=f"#ticket-{ticket['id']}",  # In production: link to ServiceNow
                         className="ticket-link"
                     )
                 ),
@@ -204,11 +203,15 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
                 ),
                 html.Td(ticket['age'], className="text-muted"),
                 html.Td(ticket['owner'])
-            ])
+            ],
+            id={'type': 'ticket-row', 'index': ticket['id']},
+            className="ticket-row-clickable",
+            n_clicks=0
+            )
         )
     
-    body = html.Tbody(rows)
-    
+    body = html.Tbody(rows, id='ticket-table-body')
+
     return dbc.Table(
         [header, body],
         striped=False,
@@ -216,3 +219,106 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
         responsive=True,
         className="ticket-table"
     )
+
+
+def get_platform_name(platform_id: str) -> str:
+    """Get the display name for a platform ID."""
+    platform_names = {
+        'edlap': 'EDLAP',
+        'sapbw': 'SAP B/W',
+        'tableau': 'Tableau',
+        'alteryx': 'Alteryx'
+    }
+    return platform_names.get(platform_id, platform_id)
+
+
+def get_servicenow_url(ticket_id: str) -> str:
+    """Generate ServiceNow URL for a ticket."""
+    return f"https://company.service-now.com/nav_to.do?uri=incident.do?sys_id={ticket_id}"
+
+
+def create_ticket_detail_modal() -> dbc.Modal:
+    """Create the ticket detail modal component."""
+    return dbc.Modal([
+        dbc.ModalHeader([
+            dbc.ModalTitle(id='modal-ticket-title'),
+            html.Button(
+                html.I(className="fa fa-times"),
+                className="btn-close-modal",
+                id='modal-close-btn',
+                n_clicks=0
+            )
+        ], close_button=False, className="modal-header-custom"),
+        dbc.ModalBody([
+            # Ticket ID with ServiceNow link
+            html.Div([
+                html.Span("Ticket ID: ", className="modal-label"),
+                html.A(
+                    id='modal-ticket-id',
+                    href="#",
+                    target="_blank",
+                    className="modal-ticket-link"
+                )
+            ], className="modal-field"),
+
+            # Platform with status badge
+            html.Div([
+                html.Span("Platform: ", className="modal-label"),
+                html.Span(id='modal-platform-badge', className="modal-platform-badge")
+            ], className="modal-field"),
+
+            # Priority
+            html.Div([
+                html.Span("Priority: ", className="modal-label"),
+                html.Span(id='modal-priority-badge', className="priority-badge")
+            ], className="modal-field"),
+
+            # Age / Created Date
+            html.Div([
+                html.Span("Age: ", className="modal-label"),
+                html.Span(id='modal-age')
+            ], className="modal-field"),
+
+            html.Div([
+                html.Span("Created: ", className="modal-label"),
+                html.Span(id='modal-created-date')
+            ], className="modal-field"),
+
+            # Owner
+            html.Div([
+                html.Span("Assigned To: ", className="modal-label"),
+                html.Span(id='modal-owner')
+            ], className="modal-field"),
+
+            # Last Updated
+            html.Div([
+                html.Span("Last Updated: ", className="modal-label"),
+                html.Span(id='modal-last-updated')
+            ], className="modal-field"),
+
+            # Description
+            html.Hr(className="modal-divider"),
+            html.Div([
+                html.H6("Description", className="modal-section-title"),
+                html.P(id='modal-description', className="modal-description")
+            ], className="modal-description-section")
+        ]),
+        dbc.ModalFooter([
+            dbc.Button(
+                [html.I(className="fa fa-external-link-alt me-2"), "Open in ServiceNow"],
+                id='modal-servicenow-btn',
+                href="#",
+                target="_blank",
+                color="primary",
+                className="btn-servicenow",
+                external_link=True
+            ),
+            dbc.Button(
+                "Close",
+                id='modal-footer-close-btn',
+                className="btn-modal-close",
+                color="secondary",
+                outline=True
+            )
+        ])
+    ], id='ticket-detail-modal', is_open=False, centered=True, size="lg", className="ticket-modal")
