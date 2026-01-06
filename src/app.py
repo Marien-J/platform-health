@@ -67,6 +67,45 @@ app.layout = dbc.Container([
             ], className="ticket-header")
         ]),
         dbc.CardBody([
+            # Filter and Sort Controls
+            html.Div([
+                # Text Search Filter
+                html.Div([
+                    dbc.Input(
+                        id='ticket-search-input',
+                        type='text',
+                        placeholder='Search by ticket ID, title, or owner...',
+                        className='ticket-search-input'
+                    )
+                ], className='filter-control search-control'),
+
+                # Sort Controls
+                html.Div([
+                    html.Label('Sort by:', className='sort-label'),
+                    dbc.Select(
+                        id='ticket-sort-field',
+                        options=[
+                            {'label': 'Ticket ID', 'value': 'id'},
+                            {'label': 'Title', 'value': 'title'},
+                            {'label': 'Priority', 'value': 'priority'},
+                            {'label': 'Owner', 'value': 'owner'}
+                        ],
+                        value='id',
+                        className='sort-select'
+                    ),
+                    dbc.Button(
+                        html.I(className='fa fa-sort-amount-down', id='sort-icon'),
+                        id='sort-direction-btn',
+                        color='light',
+                        className='sort-direction-btn',
+                        n_clicks=0
+                    )
+                ], className='filter-control sort-control')
+            ], className='ticket-filter-bar'),
+
+            # Store for sort direction (True = ascending, False = descending)
+            dcc.Store(id='sort-direction', data=True),
+
             html.Div(id='ticket-table')
         ])
     ], className="ticket-card"),
@@ -152,16 +191,34 @@ def handle_card_click(card_clicks, clear_clicks):
 
 
 @callback(
+    Output('sort-direction', 'data'),
+    Output('sort-icon', 'className'),
+    Input('sort-direction-btn', 'n_clicks'),
+    prevent_initial_call=True
+)
+def toggle_sort_direction(n_clicks):
+    """Toggle sort direction between ascending and descending."""
+    # Odd clicks = descending, even clicks = ascending
+    is_ascending = n_clicks % 2 == 0
+    icon_class = 'fa fa-sort-amount-up' if is_ascending else 'fa fa-sort-amount-down'
+    return is_ascending, icon_class
+
+
+@callback(
     Output('ticket-section-title', 'children'),
     Output('clear-filter-btn', 'style'),
     Output('ticket-table', 'children'),
-    Input('selected-platform', 'data')
+    Input('selected-platform', 'data'),
+    Input('ticket-search-input', 'value'),
+    Input('ticket-sort-field', 'value'),
+    Input('sort-direction', 'data')
 )
-def update_ticket_section(selected_platform_id):
-    """Update ticket section based on selected platform."""
+def update_ticket_section(selected_platform_id, search_text, sort_field, is_ascending):
+    """Update ticket section based on selected platform, search, and sort options."""
     platforms = get_platforms()
     tickets = get_tickets()
-    
+
+    # Filter by platform
     if selected_platform_id:
         platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
         platform_name = platform['name'] if platform else 'Unknown'
@@ -172,7 +229,34 @@ def update_ticket_section(selected_platform_id):
         title = "All Open Tickets"
         btn_style = {'display': 'none'}
         filtered_tickets = tickets
-    
+
+    # Apply text search filter
+    if search_text:
+        search_lower = search_text.lower()
+        filtered_tickets = [
+            t for t in filtered_tickets
+            if search_lower in t['id'].lower()
+            or search_lower in t['title'].lower()
+            or search_lower in t['owner'].lower()
+        ]
+
+    # Apply sorting
+    if sort_field:
+        # Special handling for priority to sort by severity rather than alphabetically
+        if sort_field == 'priority':
+            priority_order = {'High': 0, 'Medium': 1, 'Low': 2}
+            filtered_tickets = sorted(
+                filtered_tickets,
+                key=lambda t: priority_order.get(t['priority'], 99),
+                reverse=not is_ascending
+            )
+        else:
+            filtered_tickets = sorted(
+                filtered_tickets,
+                key=lambda t: t.get(sort_field, '').lower() if isinstance(t.get(sort_field), str) else t.get(sort_field, ''),
+                reverse=not is_ascending
+            )
+
     return title, btn_style, create_ticket_table(filtered_tickets)
 
 
