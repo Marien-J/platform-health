@@ -2,9 +2,11 @@
 UI Components for Platform Health Dashboard.
 """
 
-from dash import html
+from dash import html, dcc
 import dash_bootstrap_components as dbc
-from typing import List, Dict, Any
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from typing import List, Dict, Any, Optional
 
 # Color schemes for status indicators
 STATUS_COLORS = {
@@ -322,3 +324,521 @@ def create_ticket_detail_modal() -> dbc.Modal:
             )
         ])
     ], id='ticket-detail-modal', is_open=False, centered=True, size="lg", className="ticket-modal")
+
+
+# Graph color palette for multiple series
+GRAPH_COLORS = [
+    '#2563EB',  # Blue
+    '#9CA3AF',  # Gray
+    '#10B981',  # Green
+    '#F59E0B',  # Amber
+    '#EC4899',  # Pink
+    '#8B5CF6',  # Purple
+    '#06B6D4',  # Cyan
+    '#EF4444',  # Red
+]
+
+# Graph layout configuration for consistent sizing
+GRAPH_LAYOUT_CONFIG = {
+    'margin': dict(l=50, r=20, t=40, b=50),
+    'font': dict(family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', size=11),
+    'paper_bgcolor': 'white',
+    'plot_bgcolor': 'white',
+    'hovermode': 'x unified',
+}
+
+
+def create_server_status_card(
+    server_id: str,
+    alert_count: int,
+    status: str,
+    is_selected: bool = False
+) -> html.Div:
+    """Create a clickable server status card."""
+    colors = STATUS_COLORS.get(status, STATUS_COLORS['healthy'])
+
+    card_style = {
+        'padding': '12px 16px',
+        'borderRadius': '8px',
+        'border': f"2px solid {colors['bg'] if is_selected else '#E5E7EB'}",
+        'backgroundColor': colors['light'] if status != 'healthy' else '#FFFFFF',
+        'cursor': 'pointer',
+        'transition': 'all 0.2s ease',
+        'textAlign': 'center',
+        'minWidth': '100px',
+        'flex': '1 1 100px',
+    }
+
+    if is_selected:
+        card_style['boxShadow'] = f"0 2px 8px {colors['bg']}40"
+
+    return html.Div([
+        html.Div(
+            className="status-indicator",
+            style={
+                'width': '8px',
+                'height': '8px',
+                'borderRadius': '50%',
+                'backgroundColor': colors['bg'],
+                'display': 'inline-block',
+                'marginBottom': '4px'
+            }
+        ),
+        html.Div(server_id, style={'fontWeight': '600', 'fontSize': '13px', 'color': '#111827'}),
+        html.Div(f"{alert_count} alerts", style={'fontSize': '11px', 'color': '#6B7280'})
+    ], style=card_style, className="server-status-card")
+
+
+def create_server_status_section(
+    title: str,
+    servers: List[str],
+    alert_counts: Dict[str, int],
+    server_statuses: Dict[str, str],
+    selected_servers: Optional[List[str]] = None,
+    card_id_prefix: str = "server"
+) -> html.Div:
+    """Create a row of server status cards."""
+    if selected_servers is None:
+        selected_servers = []
+
+    cards = []
+    for server in servers:
+        is_selected = server in selected_servers
+        cards.append(
+            html.Div(
+                create_server_status_card(
+                    server,
+                    alert_counts.get(server, 0),
+                    server_statuses.get(server, 'healthy'),
+                    is_selected
+                ),
+                id={'type': f'{card_id_prefix}-card', 'index': server},
+                n_clicks=0,
+                className="server-card-wrapper"
+            )
+        )
+
+    return html.Div([
+        html.H6(title, className="server-section-title"),
+        html.Div(cards, className="server-cards-row")
+    ], className="server-status-section")
+
+
+def create_active_users_graph(
+    timestamps: List,
+    values: List[int],
+    avg_month: int,
+    peak_month: int,
+    title: str = "Total Active Users"
+) -> dcc.Graph:
+    """Create active users time series graph with average and peak lines (no warning/critical)."""
+    fig = go.Figure()
+
+    # Main data line with area fill
+    fig.add_trace(go.Scatter(
+        x=timestamps,
+        y=values,
+        mode='lines',
+        name='Total Users',
+        line=dict(color='#2563EB', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(37, 99, 235, 0.1)',
+        hovertemplate='%{y} users<extra></extra>'
+    ))
+
+    # Average line (last month)
+    fig.add_hline(
+        y=avg_month,
+        line=dict(color='#059669', width=2, dash='dash'),
+        annotation_text=f"Average: {avg_month}",
+        annotation_position="right",
+        annotation_font=dict(color='#059669', size=10)
+    )
+
+    # Peak line (last month)
+    fig.add_hline(
+        y=peak_month,
+        line=dict(color='#7C3AED', width=2, dash='dot'),
+        annotation_text=f"Peak: {peak_month}",
+        annotation_position="right",
+        annotation_font=dict(color='#7C3AED', size=10)
+    )
+
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=14, color='#111827')),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#F3F4F6',
+            tickformat='%H:%M\n%b %d',
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#F3F4F6',
+            title='Users',
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            font=dict(size=10)
+        ),
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_memory_usage_graph(
+    timestamps: List,
+    servers_data: Dict[str, Dict],
+    server_list: List[str],
+    selected_servers: Optional[List[str]] = None,
+    thresholds: Optional[Dict] = None,
+    title: str = "Memory Usage (%)"
+) -> dcc.Graph:
+    """Create memory usage graph for multiple servers with hover-based legend."""
+    fig = go.Figure()
+
+    # Determine which servers to show
+    visible_servers = selected_servers if selected_servers else server_list
+
+    for i, server in enumerate(server_list):
+        visible = server in visible_servers
+        memory_data = servers_data[server]['memory']
+
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=memory_data,
+            mode='lines',
+            name=server,
+            line=dict(color=GRAPH_COLORS[i % len(GRAPH_COLORS)], width=1.5),
+            visible=True if visible else 'legendonly',
+            hovertemplate=f'{server}: %{{y:.1f}}%<extra></extra>'
+        ))
+
+    # Add average line
+    if visible_servers:
+        avg_values = []
+        for i in range(len(timestamps)):
+            avg = sum(servers_data[s]['memory'][i] for s in visible_servers) / len(visible_servers)
+            avg_values.append(avg)
+
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=avg_values,
+            mode='lines',
+            name='Average',
+            line=dict(color='#7C3AED', width=2.5),
+            hovertemplate='Average: %{y:.1f}%<extra></extra>'
+        ))
+
+    # Add threshold lines
+    if thresholds:
+        fig.add_hline(
+            y=thresholds.get('memory_warning', 75),
+            line=dict(color='#F59E0B', width=1.5, dash='dash'),
+            annotation_text="Warning",
+            annotation_position="right",
+            annotation_font=dict(color='#F59E0B', size=9)
+        )
+        fig.add_hline(
+            y=thresholds.get('memory_critical', 90),
+            line=dict(color='#EF4444', width=1.5, dash='dash'),
+            annotation_text="Critical",
+            annotation_position="right",
+            annotation_font=dict(color='#EF4444', size=9)
+        )
+
+    fig.update_layout(
+        title=dict(text=f"{title} - {len(server_list)} Machines", font=dict(size=14, color='#111827')),
+        xaxis=dict(showgrid=True, gridcolor='#F3F4F6', tickformat='%H:%M\n%b %d'),
+        yaxis=dict(showgrid=True, gridcolor='#F3F4F6', title='%', range=[0, 105]),
+        showlegend=False,  # Hide legend - use tooltip
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_load_time_graph(
+    timestamps: List,
+    load_times: List[float],
+    load_time_spikes: List[bool],
+    avg_week: float,
+    peak_week: float,
+    title: str = "Avg Dashboard Load Time (sec)"
+) -> dcc.Graph:
+    """Create load time graph with spikes marked (orange when exceeds average, no red markers)."""
+    fig = go.Figure()
+
+    # Main line with area fill
+    fig.add_trace(go.Scatter(
+        x=timestamps,
+        y=load_times,
+        mode='lines',
+        name='Load Time',
+        line=dict(color='#06B6D4', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(6, 182, 212, 0.1)',
+        hovertemplate='%{y:.1f}s<extra></extra>'
+    ))
+
+    # Add orange markers for values exceeding average
+    spike_x = []
+    spike_y = []
+    for i, (ts, lt) in enumerate(zip(timestamps, load_times)):
+        if lt > avg_week:
+            spike_x.append(ts)
+            spike_y.append(lt)
+
+    if spike_x:
+        fig.add_trace(go.Scatter(
+            x=spike_x,
+            y=spike_y,
+            mode='markers',
+            name='Above Average',
+            marker=dict(
+                color='#F59E0B',
+                size=8,
+                symbol='diamond',
+                line=dict(color='#92400E', width=1)
+            ),
+            hovertemplate='%{y:.1f}s (above avg)<extra></extra>'
+        ))
+
+    # Average line
+    fig.add_hline(
+        y=avg_week,
+        line=dict(color='#059669', width=2, dash='dash'),
+        annotation_text=f"Avg: {avg_week}s",
+        annotation_position="right",
+        annotation_font=dict(color='#059669', size=10)
+    )
+
+    # Peak line
+    fig.add_hline(
+        y=peak_week,
+        line=dict(color='#7C3AED', width=2, dash='dot'),
+        annotation_text=f"Peak: {peak_week}s",
+        annotation_position="right",
+        annotation_font=dict(color='#7C3AED', size=10)
+    )
+
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=14, color='#111827')),
+        xaxis=dict(showgrid=True, gridcolor='#F3F4F6', tickformat='%H:%M\n%b %d'),
+        yaxis=dict(showgrid=True, gridcolor='#F3F4F6', title='Load Time (s)'),
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            font=dict(size=10)
+        ),
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_cpu_usage_graph(
+    timestamps: List,
+    servers_data: Dict[str, Dict],
+    server_list: List[str],
+    avg_cpu: List[float],
+    avg_week: float,
+    peak_week: float,
+    selected_servers: Optional[List[str]] = None,
+    title: str = "CPU Usage (%)"
+) -> dcc.Graph:
+    """Create CPU usage graph with average and peak lines (no threshold lines)."""
+    fig = go.Figure()
+
+    visible_servers = selected_servers if selected_servers else server_list
+
+    for i, server in enumerate(server_list):
+        visible = server in visible_servers
+        cpu_data = servers_data[server]['cpu']
+
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=cpu_data,
+            mode='lines',
+            name=server,
+            line=dict(color=GRAPH_COLORS[i % len(GRAPH_COLORS)], width=1.5),
+            visible=True if visible else 'legendonly',
+            hovertemplate=f'{server}: %{{y:.1f}}%<extra></extra>'
+        ))
+
+    # Add overall average line
+    fig.add_trace(go.Scatter(
+        x=timestamps,
+        y=avg_cpu,
+        mode='lines',
+        name='Average',
+        line=dict(color='#059669', width=2.5),
+        hovertemplate='Average: %{y:.1f}%<extra></extra>'
+    ))
+
+    # Add historical average and peak lines
+    fig.add_hline(
+        y=avg_week,
+        line=dict(color='#059669', width=1.5, dash='dash'),
+        annotation_text=f"Week Avg: {avg_week}%",
+        annotation_position="right",
+        annotation_font=dict(color='#059669', size=10)
+    )
+
+    fig.add_hline(
+        y=peak_week,
+        line=dict(color='#7C3AED', width=1.5, dash='dot'),
+        annotation_text=f"Week Peak: {peak_week}%",
+        annotation_position="right",
+        annotation_font=dict(color='#7C3AED', size=10)
+    )
+
+    fig.update_layout(
+        title=dict(text=f"{title} - {len(server_list)} Machines", font=dict(size=14, color='#111827')),
+        xaxis=dict(showgrid=True, gridcolor='#F3F4F6', tickformat='%H:%M\n%b %d'),
+        yaxis=dict(showgrid=True, gridcolor='#F3F4F6', title='%', range=[0, 105]),
+        showlegend=False,  # Hide legend - use tooltip
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_pipeline_status_bar_chart(
+    pipeline_status: Dict[str, int],
+    title: str = "Pipeline Status"
+) -> dcc.Graph:
+    """Create a bar chart showing pipeline status counts (successful, delayed, failed)."""
+    categories = ['Successful', 'Delayed', 'Failed']
+    values = [
+        pipeline_status.get('successful', 0),
+        pipeline_status.get('delayed', 0),
+        pipeline_status.get('failed', 0)
+    ]
+    colors = ['#059669', '#F59E0B', '#EF4444']
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=categories,
+        y=values,
+        marker_color=colors,
+        text=values,
+        textposition='outside',
+        hovertemplate='%{x}: %{y}<extra></extra>'
+    ))
+
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=14, color='#111827')),
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor='#F3F4F6', title='Count'),
+        showlegend=False,
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_tickets_time_series_graph(
+    timestamps: List,
+    open_tickets: List[int],
+    avg_month: float,
+    peak_month: int,
+    title: str = "Open Tickets (Last 30 Days)"
+) -> dcc.Graph:
+    """Create tickets time series with average and peak lines (no warning/critical)."""
+    fig = go.Figure()
+
+    # Main line with area fill
+    fig.add_trace(go.Scatter(
+        x=timestamps,
+        y=open_tickets,
+        mode='lines+markers',
+        name='Open Tickets',
+        line=dict(color='#2563EB', width=2),
+        marker=dict(size=4),
+        fill='tozeroy',
+        fillcolor='rgba(37, 99, 235, 0.1)',
+        hovertemplate='%{y} tickets<extra></extra>'
+    ))
+
+    # Average line
+    fig.add_hline(
+        y=avg_month,
+        line=dict(color='#059669', width=2, dash='dash'),
+        annotation_text=f"Avg: {avg_month:.0f}",
+        annotation_position="right",
+        annotation_font=dict(color='#059669', size=10)
+    )
+
+    # Peak line
+    fig.add_hline(
+        y=peak_month,
+        line=dict(color='#7C3AED', width=2, dash='dot'),
+        annotation_text=f"Peak: {peak_month}",
+        annotation_position="right",
+        annotation_font=dict(color='#7C3AED', size=10)
+    )
+
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=14, color='#111827')),
+        xaxis=dict(showgrid=True, gridcolor='#F3F4F6', tickformat='%b %d'),
+        yaxis=dict(showgrid=True, gridcolor='#F3F4F6', title='Tickets'),
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            font=dict(size=10)
+        ),
+        **GRAPH_LAYOUT_CONFIG
+    )
+
+    return dcc.Graph(
+        figure=fig,
+        config={'displayModeBar': False, 'responsive': True},
+        className='dashboard-graph'
+    )
+
+
+def create_platform_performance_section(
+    platform_name: str,
+    platform_icon: str = "📊"
+) -> html.Div:
+    """Create a section header for platform performance."""
+    return html.Div([
+        html.Span(platform_icon, style={'marginRight': '8px'}),
+        html.Span(f"{platform_name} - System Performance", style={'fontWeight': '600'}),
+        html.Span(" Last 24 hours • 5-minute intervals", style={'color': '#6B7280', 'fontSize': '13px', 'marginLeft': '12px'})
+    ], className="platform-section-header")

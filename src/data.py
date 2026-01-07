@@ -4,6 +4,9 @@ In production, this would connect to your actual data sources (ServiceNow, monit
 """
 
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
+import random
+import math
 
 
 def get_platforms() -> List[Dict[str, Any]]:
@@ -204,3 +207,295 @@ STATUS_THRESHOLDS = {
         'queue_depth': {'healthy': 10, 'attention': 20}
     }
 }
+
+
+# Server configurations
+TABLEAU_SERVERS = [f"TAB-SRV-{i:02d}" for i in range(1, 9)]
+ALTERYX_WORKERS = [f"ALT-WRK-{i:02d}" for i in range(1, 9)]
+
+
+def _generate_time_series(hours: int = 24, interval_minutes: int = 5) -> List[datetime]:
+    """Generate time series timestamps for the last N hours."""
+    now = datetime.now().replace(second=0, microsecond=0)
+    # Round to nearest interval
+    now = now.replace(minute=(now.minute // interval_minutes) * interval_minutes)
+    points = hours * 60 // interval_minutes
+    return [now - timedelta(minutes=i * interval_minutes) for i in range(points - 1, -1, -1)]
+
+
+def _generate_metric_data(
+    base: float,
+    variance: float,
+    spike_probability: float = 0.02,
+    spike_multiplier: float = 1.5,
+    hours: int = 24
+) -> List[float]:
+    """Generate realistic metric data with occasional spikes."""
+    timestamps = _generate_time_series(hours)
+    data = []
+
+    for i, ts in enumerate(timestamps):
+        # Add time-of-day pattern (higher during business hours)
+        hour = ts.hour
+        time_factor = 1.0 + 0.3 * math.sin((hour - 6) * math.pi / 12) if 6 <= hour <= 18 else 0.7
+
+        # Base value with variance
+        value = base * time_factor + random.uniform(-variance, variance)
+
+        # Occasional spikes
+        if random.random() < spike_probability:
+            value *= spike_multiplier
+
+        data.append(max(0, min(100, value)))  # Clamp between 0 and 100
+
+    return data
+
+
+def get_tableau_server_data() -> Dict[str, Any]:
+    """Get Tableau server performance data for the last 24 hours."""
+    timestamps = _generate_time_series(24)
+
+    # Generate data for each server with slightly different characteristics
+    servers_data = {}
+    alert_counts = {}
+    server_statuses = {}
+
+    for i, server in enumerate(TABLEAU_SERVERS):
+        # Each server has slightly different baseline metrics
+        base_cpu = 45 + i * 3 + random.uniform(-5, 5)
+        base_memory = 55 + i * 2 + random.uniform(-5, 5)
+
+        cpu_data = _generate_metric_data(base_cpu, 15, spike_probability=0.03)
+        memory_data = _generate_metric_data(base_memory, 10, spike_probability=0.02)
+
+        servers_data[server] = {
+            'cpu': cpu_data,
+            'memory': memory_data
+        }
+
+        # Count alerts (values exceeding thresholds)
+        critical_count = sum(1 for v in cpu_data + memory_data if v > 90)
+        warning_count = sum(1 for v in cpu_data + memory_data if 75 < v <= 90)
+        alert_counts[server] = critical_count + warning_count
+
+        # Determine server status
+        if critical_count > 5:
+            server_statuses[server] = 'critical'
+        elif warning_count > 10 or critical_count > 0:
+            server_statuses[server] = 'attention'
+        else:
+            server_statuses[server] = 'healthy'
+
+    # Generate active users (aggregate)
+    active_users = []
+    for i, ts in enumerate(timestamps):
+        hour = ts.hour
+        # Business hours pattern
+        if 8 <= hour <= 18:
+            base_users = 250 + random.uniform(-50, 50)
+        else:
+            base_users = 100 + random.uniform(-30, 30)
+
+        # Occasional spikes
+        if random.random() < 0.05:
+            base_users *= 1.3
+
+        active_users.append(int(base_users))
+
+    # Generate load times (in seconds) with spikes
+    load_times = []
+    load_time_spikes = []  # Track which points are spikes
+
+    for i in range(len(timestamps)):
+        base_load = 4 + random.uniform(-1, 1)
+        is_spike = random.random() < 0.03
+
+        if is_spike:
+            load_time = base_load * random.uniform(2, 4)
+            load_time_spikes.append(True)
+        else:
+            load_time = base_load
+            load_time_spikes.append(False)
+
+        load_times.append(round(load_time, 1))
+
+    # Calculate historical averages (simulating "last month" data)
+    avg_users_month = int(sum(active_users) / len(active_users) * 0.95)
+    peak_users_month = int(max(active_users) * 1.1)
+
+    # Calculate weekly averages for load times and CPU
+    avg_load_week = round(sum(load_times) / len(load_times), 1)
+    peak_load_week = round(max(load_times) * 0.9, 1)
+
+    # CPU averages across all servers
+    all_cpu = []
+    for server_data in servers_data.values():
+        all_cpu.extend(server_data['cpu'])
+    avg_cpu = [sum(servers_data[s]['cpu'][i] for s in TABLEAU_SERVERS) / len(TABLEAU_SERVERS)
+               for i in range(len(timestamps))]
+    avg_cpu_week = round(sum(avg_cpu) / len(avg_cpu), 1)
+    peak_cpu_week = round(max(avg_cpu), 1)
+
+    return {
+        'timestamps': timestamps,
+        'servers': servers_data,
+        'alert_counts': alert_counts,
+        'server_statuses': server_statuses,
+        'active_users': active_users,
+        'load_times': load_times,
+        'load_time_spikes': load_time_spikes,
+        'avg_cpu': avg_cpu,
+        'thresholds': {
+            'cpu_warning': 75,
+            'cpu_critical': 90,
+            'memory_warning': 75,
+            'memory_critical': 90,
+        },
+        'historical': {
+            'avg_users_month': avg_users_month,
+            'peak_users_month': peak_users_month,
+            'avg_load_week': avg_load_week,
+            'peak_load_week': peak_load_week,
+            'avg_cpu_week': avg_cpu_week,
+            'peak_cpu_week': peak_cpu_week,
+        }
+    }
+
+
+def get_alteryx_server_data() -> Dict[str, Any]:
+    """Get Alteryx worker performance data for the last 24 hours."""
+    timestamps = _generate_time_series(24)
+
+    workers_data = {}
+    alert_counts = {}
+    worker_statuses = {}
+
+    for i, worker in enumerate(ALTERYX_WORKERS):
+        base_cpu = 40 + i * 4 + random.uniform(-5, 5)
+        base_memory = 50 + i * 3 + random.uniform(-5, 5)
+
+        cpu_data = _generate_metric_data(base_cpu, 12, spike_probability=0.02)
+        memory_data = _generate_metric_data(base_memory, 8, spike_probability=0.02)
+
+        workers_data[worker] = {
+            'cpu': cpu_data,
+            'memory': memory_data
+        }
+
+        critical_count = sum(1 for v in cpu_data + memory_data if v > 90)
+        warning_count = sum(1 for v in cpu_data + memory_data if 75 < v <= 90)
+        alert_counts[worker] = critical_count + warning_count
+
+        if critical_count > 5:
+            worker_statuses[worker] = 'critical'
+        elif warning_count > 10 or critical_count > 0:
+            worker_statuses[worker] = 'attention'
+        else:
+            worker_statuses[worker] = 'healthy'
+
+    # Active users
+    active_users = []
+    for ts in timestamps:
+        hour = ts.hour
+        if 9 <= hour <= 17:
+            base_users = 150 + random.uniform(-30, 30)
+        else:
+            base_users = 50 + random.uniform(-20, 20)
+
+        if random.random() < 0.04:
+            base_users *= 1.4
+
+        active_users.append(int(base_users))
+
+    # Load times
+    load_times = []
+    load_time_spikes = []
+
+    for i in range(len(timestamps)):
+        base_load = 6 + random.uniform(-2, 2)
+        is_spike = random.random() < 0.04
+
+        if is_spike:
+            load_time = base_load * random.uniform(2, 3)
+            load_time_spikes.append(True)
+        else:
+            load_time = base_load
+            load_time_spikes.append(False)
+
+        load_times.append(round(load_time, 1))
+
+    avg_users_month = int(sum(active_users) / len(active_users) * 0.9)
+    peak_users_month = int(max(active_users) * 1.05)
+
+    avg_load_week = round(sum(load_times) / len(load_times), 1)
+    peak_load_week = round(max(load_times) * 0.85, 1)
+
+    avg_cpu = [sum(workers_data[w]['cpu'][i] for w in ALTERYX_WORKERS) / len(ALTERYX_WORKERS)
+               for i in range(len(timestamps))]
+    avg_cpu_week = round(sum(avg_cpu) / len(avg_cpu), 1)
+    peak_cpu_week = round(max(avg_cpu), 1)
+
+    return {
+        'timestamps': timestamps,
+        'workers': workers_data,
+        'alert_counts': alert_counts,
+        'worker_statuses': worker_statuses,
+        'active_users': active_users,
+        'load_times': load_times,
+        'load_time_spikes': load_time_spikes,
+        'avg_cpu': avg_cpu,
+        'thresholds': {
+            'cpu_warning': 75,
+            'cpu_critical': 90,
+            'memory_warning': 75,
+            'memory_critical': 90,
+        },
+        'historical': {
+            'avg_users_month': avg_users_month,
+            'peak_users_month': peak_users_month,
+            'avg_load_week': avg_load_week,
+            'peak_load_week': peak_load_week,
+            'avg_cpu_week': avg_cpu_week,
+            'peak_cpu_week': peak_cpu_week,
+        }
+    }
+
+
+def get_edlap_data() -> Dict[str, Any]:
+    """Get EDLAP platform data including pipeline status and tickets."""
+    timestamps = _generate_time_series(24)
+
+    # Pipeline status counts (for bar chart)
+    pipeline_status = {
+        'successful': random.randint(85, 120),
+        'delayed': random.randint(5, 15),
+        'failed': random.randint(1, 5)
+    }
+
+    # Open tickets time series (last 30 days, daily)
+    ticket_days = 30
+    ticket_timestamps = [datetime.now() - timedelta(days=i) for i in range(ticket_days - 1, -1, -1)]
+
+    open_tickets = []
+    base_tickets = 12
+    for i in range(ticket_days):
+        # Add some trend and variance
+        tickets = base_tickets + random.randint(-3, 4)
+        # Occasional spikes (e.g., after incidents)
+        if random.random() < 0.1:
+            tickets += random.randint(3, 8)
+        open_tickets.append(max(0, tickets))
+
+    avg_tickets_month = round(sum(open_tickets) / len(open_tickets), 1)
+    peak_tickets_month = max(open_tickets)
+
+    return {
+        'timestamps': timestamps,
+        'ticket_timestamps': ticket_timestamps,
+        'pipeline_status': pipeline_status,
+        'open_tickets': open_tickets,
+        'historical': {
+            'avg_tickets_month': avg_tickets_month,
+            'peak_tickets_month': peak_tickets_month,
+        }
+    }

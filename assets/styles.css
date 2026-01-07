@@ -426,6 +426,104 @@ body {
     border-radius: 6px;
 }
 
+/* Performance Cards and Graphs */
+.performance-card {
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 24px;
+}
+
+.performance-card-header {
+    background-color: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+    padding: 12px 20px;
+}
+
+.platform-section-header {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    color: #111827;
+}
+
+/* Server Status Section */
+.server-status-section {
+    margin-bottom: 20px;
+}
+
+.server-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+}
+
+.server-cards-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.server-card-wrapper {
+    flex: 1 1 100px;
+    min-width: 100px;
+    max-width: 150px;
+}
+
+.server-status-card {
+    transition: all 0.2s ease;
+}
+
+.server-status-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Graphs Grid - Ensures consistent sizing */
+.graphs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.graph-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.graph-cell {
+    min-height: 300px;
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    overflow: hidden;
+}
+
+/* Dashboard Graph Component */
+.dashboard-graph {
+    width: 100%;
+    height: 300px;
+}
+
+/* Ensure Plotly graphs are responsive but don't jump */
+.dashboard-graph .js-plotly-plot,
+.dashboard-graph .plotly {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.dashboard-graph .js-plotly-plot .plot-container {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.dashboard-graph .js-plotly-plot .svg-container {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .platform-card-wrapper {
@@ -471,5 +569,37 @@ body {
 
     .ticket-modal .modal-footer .btn {
         width: 100%;
+    }
+
+    /* Graph grid responsive */
+    .graph-row {
+        grid-template-columns: 1fr;
+    }
+
+    .server-card-wrapper {
+        min-width: calc(50% - 6px);
+        max-width: calc(50% - 6px);
+    }
+}
+
+/* Medium screens - ensure 2 columns for graphs */
+@media (min-width: 769px) and (max-width: 1200px) {
+    .graph-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Large screens */
+@media (min-width: 1201px) {
+    .graph-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .graph-cell {
+        min-height: 320px;
+    }
+
+    .dashboard-graph {
+        height: 320px;
     }
 }

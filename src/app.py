@@ -9,10 +9,18 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 import os
 
-from data import get_platforms, get_tickets, get_summary_counts
+from data import (
+    get_platforms, get_tickets, get_summary_counts,
+    get_tableau_server_data, get_alteryx_server_data, get_edlap_data,
+    TABLEAU_SERVERS, ALTERYX_WORKERS
+)
 from components import (
     create_platform_card, create_ticket_table, create_summary_bar,
     create_ticket_detail_modal, get_platform_name, get_servicenow_url,
+    create_server_status_section, create_active_users_graph,
+    create_memory_usage_graph, create_load_time_graph, create_cpu_usage_graph,
+    create_pipeline_status_bar_chart, create_tickets_time_series_graph,
+    create_platform_performance_section,
     STATUS_COLORS, PRIORITY_COLORS
 )
 
@@ -33,9 +41,13 @@ server = app.server
 
 # Layout
 app.layout = dbc.Container([
-    # Store for selected platform (no default filter - show all tickets)
+    # Stores for selected items
     dcc.Store(id='selected-platform', data=None, storage_type='memory'),
-    
+    dcc.Store(id='selected-tableau-servers', data=[], storage_type='memory'),
+    dcc.Store(id='selected-alteryx-workers', data=[], storage_type='memory'),
+    dcc.Store(id='sort-direction', data=True),
+    dcc.Store(id='selected-ticket', data=None),
+
     # Header
     dbc.Row([
         dbc.Col([
@@ -46,14 +58,74 @@ app.layout = dbc.Container([
             )
         ])
     ], className="header-row"),
-    
+
     # Summary Bar
     html.Div(id='summary-bar', className="summary-bar"),
-    
+
     # Platform Cards
     html.Div(id='platform-cards', className="platform-cards-container"),
-    
-    # Drill-down Section
+
+    # Tableau Performance Section
+    dbc.Card([
+        dbc.CardHeader([
+            create_platform_performance_section("Tableau", "📊")
+        ], className="performance-card-header"),
+        dbc.CardBody([
+            # Server Status Cards
+            html.Div(id='tableau-server-cards', className="server-status-container"),
+
+            # Graphs Grid
+            html.Div([
+                html.Div([
+                    html.Div(id='tableau-users-graph', className="graph-cell"),
+                    html.Div(id='tableau-memory-graph', className="graph-cell"),
+                ], className="graph-row"),
+                html.Div([
+                    html.Div(id='tableau-load-time-graph', className="graph-cell"),
+                    html.Div(id='tableau-cpu-graph', className="graph-cell"),
+                ], className="graph-row"),
+            ], className="graphs-grid")
+        ])
+    ], className="performance-card"),
+
+    # Alteryx Performance Section
+    dbc.Card([
+        dbc.CardHeader([
+            create_platform_performance_section("Alteryx", "⚙️")
+        ], className="performance-card-header"),
+        dbc.CardBody([
+            # Worker Status Cards
+            html.Div(id='alteryx-worker-cards', className="server-status-container"),
+
+            # Graphs Grid
+            html.Div([
+                html.Div([
+                    html.Div(id='alteryx-memory-graph', className="graph-cell"),
+                    html.Div(id='alteryx-users-graph', className="graph-cell"),
+                ], className="graph-row"),
+                html.Div([
+                    html.Div(id='alteryx-load-time-graph', className="graph-cell"),
+                ], className="graph-row"),
+            ], className="graphs-grid")
+        ])
+    ], className="performance-card"),
+
+    # EDLAP Section
+    dbc.Card([
+        dbc.CardHeader([
+            create_platform_performance_section("EDLAP", "🗄️")
+        ], className="performance-card-header"),
+        dbc.CardBody([
+            html.Div([
+                html.Div([
+                    html.Div(id='edlap-pipeline-graph', className="graph-cell"),
+                    html.Div(id='edlap-tickets-graph', className="graph-cell"),
+                ], className="graph-row"),
+            ], className="graphs-grid")
+        ])
+    ], className="performance-card"),
+
+    # Ticket Drill-down Section
     dbc.Card([
         dbc.CardHeader([
             html.Div([
@@ -69,7 +141,6 @@ app.layout = dbc.Container([
         dbc.CardBody([
             # Filter and Sort Controls
             html.Div([
-                # Text Search Filter
                 html.Div([
                     dbc.Input(
                         id='ticket-search-input',
@@ -78,8 +149,6 @@ app.layout = dbc.Container([
                         className='ticket-search-input'
                     )
                 ], className='filter-control search-control'),
-
-                # Sort Controls
                 html.Div([
                     html.Label('Sort by:', className='sort-label'),
                     dbc.Select(
@@ -102,26 +171,19 @@ app.layout = dbc.Container([
                     )
                 ], className='filter-control sort-control')
             ], className='ticket-filter-bar'),
-
-            # Store for sort direction (True = ascending, False = descending)
-            dcc.Store(id='sort-direction', data=True),
-
             html.Div(id='ticket-table')
         ])
     ], className="ticket-card"),
-    
+
     # Footer Note
     dbc.Alert([
         html.Strong("Dashboard Note: "),
-        "Click any platform card to filter tickets. Status thresholds (Healthy/Attention/Critical) ",
-        "are configurable based on agreed business rules."
+        "Click any platform card to filter tickets. Click server cards to filter graphs. ",
+        "Status thresholds are configurable based on agreed business rules."
     ], color="info", className="footer-note"),
 
     # Ticket Detail Modal
     create_ticket_detail_modal(),
-
-    # Store for selected ticket data
-    dcc.Store(id='selected-ticket', data=None)
 
 ], fluid=True, className="dashboard-container")
 
@@ -372,6 +434,233 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
         )
 
     return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+
+
+# ==================== Tableau Section Callbacks ====================
+
+@callback(
+    Output('selected-tableau-servers', 'data'),
+    Input({'type': 'tableau-server-card', 'index': dash.ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def handle_tableau_server_click(clicks):
+    """Handle Tableau server card clicks for filtering."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]['prop_id']
+    triggered_value = ctx.triggered[0]['value']
+
+    if not triggered_value or triggered_value == 0:
+        return dash.no_update
+
+    if 'tableau-server-card' in triggered_id:
+        import json
+        prop_id = triggered_id.rsplit('.', 1)[0]
+        component_id = json.loads(prop_id)
+        server_id = component_id['index']
+
+        # Get current selection from inputs (toggle behavior)
+        # For simplicity, we'll just return the clicked server as the only selected one
+        # Click again to deselect (empty list shows all)
+        return [server_id]
+
+    return dash.no_update
+
+
+@callback(
+    Output('tableau-server-cards', 'children'),
+    Input('selected-tableau-servers', 'data')
+)
+def update_tableau_server_cards(selected_servers):
+    """Update Tableau server status cards."""
+    data = get_tableau_server_data()
+    return create_server_status_section(
+        "Tableau Server Status",
+        TABLEAU_SERVERS,
+        data['alert_counts'],
+        data['server_statuses'],
+        selected_servers or [],
+        card_id_prefix='tableau-server'
+    )
+
+
+@callback(
+    Output('tableau-users-graph', 'children'),
+    Output('tableau-memory-graph', 'children'),
+    Output('tableau-load-time-graph', 'children'),
+    Output('tableau-cpu-graph', 'children'),
+    Input('selected-tableau-servers', 'data')
+)
+def update_tableau_graphs(selected_servers):
+    """Update all Tableau performance graphs."""
+    data = get_tableau_server_data()
+    ts = data['timestamps']
+    hist = data['historical']
+
+    # Active users graph (no filtering by server - aggregate metric)
+    users_graph = create_active_users_graph(
+        ts,
+        data['active_users'],
+        hist['avg_users_month'],
+        hist['peak_users_month'],
+        "Total Active Users"
+    )
+
+    # Memory usage graph (filterable by server)
+    memory_graph = create_memory_usage_graph(
+        ts,
+        data['servers'],
+        TABLEAU_SERVERS,
+        selected_servers if selected_servers else None,
+        data['thresholds'],
+        "Memory Usage (%)"
+    )
+
+    # Load time graph
+    load_graph = create_load_time_graph(
+        ts,
+        data['load_times'],
+        data['load_time_spikes'],
+        hist['avg_load_week'],
+        hist['peak_load_week'],
+        "Avg Dashboard Load Time (sec)"
+    )
+
+    # CPU usage graph (filterable by server)
+    cpu_graph = create_cpu_usage_graph(
+        ts,
+        data['servers'],
+        TABLEAU_SERVERS,
+        data['avg_cpu'],
+        hist['avg_cpu_week'],
+        hist['peak_cpu_week'],
+        selected_servers if selected_servers else None,
+        "CPU Usage (%)"
+    )
+
+    return users_graph, memory_graph, load_graph, cpu_graph
+
+
+# ==================== Alteryx Section Callbacks ====================
+
+@callback(
+    Output('selected-alteryx-workers', 'data'),
+    Input({'type': 'alteryx-worker-card', 'index': dash.ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def handle_alteryx_worker_click(clicks):
+    """Handle Alteryx worker card clicks for filtering."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]['prop_id']
+    triggered_value = ctx.triggered[0]['value']
+
+    if not triggered_value or triggered_value == 0:
+        return dash.no_update
+
+    if 'alteryx-worker-card' in triggered_id:
+        import json
+        prop_id = triggered_id.rsplit('.', 1)[0]
+        component_id = json.loads(prop_id)
+        worker_id = component_id['index']
+        return [worker_id]
+
+    return dash.no_update
+
+
+@callback(
+    Output('alteryx-worker-cards', 'children'),
+    Input('selected-alteryx-workers', 'data')
+)
+def update_alteryx_worker_cards(selected_workers):
+    """Update Alteryx worker status cards."""
+    data = get_alteryx_server_data()
+    return create_server_status_section(
+        "Alteryx Server Status",
+        ALTERYX_WORKERS,
+        data['alert_counts'],
+        data['worker_statuses'],
+        selected_workers or [],
+        card_id_prefix='alteryx-worker'
+    )
+
+
+@callback(
+    Output('alteryx-memory-graph', 'children'),
+    Output('alteryx-users-graph', 'children'),
+    Output('alteryx-load-time-graph', 'children'),
+    Input('selected-alteryx-workers', 'data')
+)
+def update_alteryx_graphs(selected_workers):
+    """Update all Alteryx performance graphs."""
+    data = get_alteryx_server_data()
+    ts = data['timestamps']
+    hist = data['historical']
+
+    # Memory usage graph
+    memory_graph = create_memory_usage_graph(
+        ts,
+        data['workers'],
+        ALTERYX_WORKERS,
+        selected_workers if selected_workers else None,
+        data['thresholds'],
+        "Memory Usage (%)"
+    )
+
+    # Active users graph
+    users_graph = create_active_users_graph(
+        ts,
+        data['active_users'],
+        hist['avg_users_month'],
+        hist['peak_users_month'],
+        "Active Users"
+    )
+
+    # Load time graph
+    load_graph = create_load_time_graph(
+        ts,
+        data['load_times'],
+        data['load_time_spikes'],
+        hist['avg_load_week'],
+        hist['peak_load_week'],
+        "Avg Dashboard Load Time (sec)"
+    )
+
+    return memory_graph, users_graph, load_graph
+
+
+# ==================== EDLAP Section Callbacks ====================
+
+@callback(
+    Output('edlap-pipeline-graph', 'children'),
+    Output('edlap-tickets-graph', 'children'),
+    Input('selected-platform', 'data')  # Trigger on any platform selection change
+)
+def update_edlap_graphs(_):
+    """Update EDLAP graphs."""
+    data = get_edlap_data()
+    hist = data['historical']
+
+    # Pipeline status bar chart
+    pipeline_graph = create_pipeline_status_bar_chart(
+        data['pipeline_status'],
+        "Pipeline Status (Today)"
+    )
+
+    # Open tickets time series
+    tickets_graph = create_tickets_time_series_graph(
+        data['ticket_timestamps'],
+        data['open_tickets'],
+        hist['avg_tickets_month'],
+        hist['peak_tickets_month'],
+        "Open Tickets (Last 30 Days)"
+    )
+
+    return pipeline_graph, tickets_graph
 
 
 if __name__ == '__main__':
