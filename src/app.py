@@ -40,7 +40,13 @@ app.layout = dbc.Container([
 
     # Store for selected machine (for Tableau/Alteryx filtering)
     dcc.Store(id='selected-machine', data=None, storage_type='memory'),
-    
+
+    # Store for card order (persisted in local storage)
+    dcc.Store(id='card-order', data=['edlap', 'sapbw', 'tableau', 'alteryx'], storage_type='local'),
+
+    # Hidden div to receive drag-drop updates from JavaScript
+    html.Div(id='drag-drop-trigger', style={'display': 'none'}, **{'data-order': ''}),
+
     # Header
     dbc.Row([
         dbc.Col([
@@ -147,22 +153,40 @@ def update_summary_bar(_):
 
 @callback(
     Output('platform-cards', 'children'),
-    Input('selected-platform', 'data')
+    Input('selected-platform', 'data'),
+    Input('card-order', 'data')
 )
-def update_platform_cards(selected_platform_id):
-    """Render all platform cards."""
+def update_platform_cards(selected_platform_id, card_order):
+    """Render all platform cards in the specified order."""
     platforms = get_platforms()
+    platforms_dict = {p['id']: p for p in platforms}
+
+    # Use stored order, falling back to default if not set
+    if not card_order:
+        card_order = ['edlap', 'sapbw', 'tableau', 'alteryx']
+
+    # Ensure all platforms are included (handle any missing ones)
+    all_ids = set(p['id'] for p in platforms)
+    ordered_ids = [pid for pid in card_order if pid in all_ids]
+    for pid in all_ids:
+        if pid not in ordered_ids:
+            ordered_ids.append(pid)
+
     cards = []
-    for platform in platforms:
-        is_selected = platform['id'] == selected_platform_id
-        cards.append(
-            html.Div(
-                create_platform_card(platform, is_selected),
-                id={'type': 'platform-card', 'index': platform['id']},
-                n_clicks=0,
-                className="platform-card-wrapper"
+    for platform_id in ordered_ids:
+        platform = platforms_dict.get(platform_id)
+        if platform:
+            is_selected = platform['id'] == selected_platform_id
+            cards.append(
+                html.Div(
+                    create_platform_card(platform, is_selected),
+                    id={'type': 'platform-card', 'index': platform['id']},
+                    n_clicks=0,
+                    className="platform-card-wrapper",
+                    draggable='true',
+                    **{'data-platform-id': platform['id']}
+                )
             )
-        )
     return cards
 
 
@@ -461,6 +485,32 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
         )
 
     return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+
+
+# Clientside callback for handling drag-drop card reordering
+app.clientside_callback(
+    """
+    function(trigger) {
+        // This callback is triggered by the drag-drop-trigger element
+        // The new order is stored in the element's data-order attribute
+        const triggerEl = document.getElementById('drag-drop-trigger');
+        if (triggerEl && triggerEl.getAttribute('data-order')) {
+            try {
+                const newOrder = JSON.parse(triggerEl.getAttribute('data-order'));
+                // Clear the trigger after reading
+                triggerEl.setAttribute('data-order', '');
+                return newOrder;
+            } catch (e) {
+                console.error('Error parsing card order:', e);
+            }
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output('card-order', 'data'),
+    Input('drag-drop-trigger', 'n_clicks'),
+    prevent_initial_call=True
+)
 
 
 if __name__ == '__main__':
