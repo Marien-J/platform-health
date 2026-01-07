@@ -346,19 +346,25 @@ def _create_base_figure(title: str = None) -> go.Figure:
     """Create a base figure with consistent styling."""
     fig = go.Figure()
     fig.update_layout(
-        title=dict(text=title, font=dict(size=14, color='#374151')) if title else None,
+        title=dict(
+            text=title,
+            font=dict(size=14, color='#374151'),
+            x=0,
+            xanchor='left'
+        ) if title else None,
         font=dict(family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', size=12),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=50, r=30, t=40 if title else 20, b=40),
+        margin=dict(l=50, r=20, t=50 if title else 20, b=40),
         hovermode='x unified',
         legend=dict(
             orientation='h',
-            yanchor='bottom',
-            y=1.02,
+            yanchor='top',
+            y=1.12,
             xanchor='right',
             x=1,
-            font=dict(size=11)
+            font=dict(size=10),
+            bgcolor='rgba(255,255,255,0.8)'
         ),
         xaxis=dict(
             showgrid=True,
@@ -387,10 +393,11 @@ def _add_threshold_lines(fig: go.Figure, thresholds: Dict[str, float], y_max: fl
             line_dash='dot',
             line_color=GRAPH_COLORS['warning'],
             line_width=1.5,
-            annotation_text='Warning',
-            annotation_position='right',
-            annotation_font_size=10,
-            annotation_font_color=GRAPH_COLORS['warning']
+            annotation_text=f"Warning: {thresholds['warning']}",
+            annotation_position='top left',
+            annotation_font_size=9,
+            annotation_font_color=GRAPH_COLORS['warning'],
+            annotation_bgcolor='rgba(255,255,255,0.8)'
         )
     if 'critical' in thresholds:
         fig.add_hline(
@@ -398,10 +405,11 @@ def _add_threshold_lines(fig: go.Figure, thresholds: Dict[str, float], y_max: fl
             line_dash='dash',
             line_color=GRAPH_COLORS['danger'],
             line_width=1.5,
-            annotation_text='Critical',
-            annotation_position='right',
-            annotation_font_size=10,
-            annotation_font_color=GRAPH_COLORS['danger']
+            annotation_text=f"Critical: {thresholds['critical']}",
+            annotation_position='top left',
+            annotation_font_size=9,
+            annotation_font_color=GRAPH_COLORS['danger'],
+            annotation_bgcolor='rgba(255,255,255,0.8)'
         )
     return fig
 
@@ -560,8 +568,8 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fillcolor='rgba(124, 58, 237, 0.1)'
     ))
     fig_memory.add_hline(y=24, line_dash='solid', line_color='#374151', line_width=1,
-                         annotation_text='Max (24TB)', annotation_position='right',
-                         annotation_font_size=10)
+                         annotation_text='Max: 24TB', annotation_position='top left',
+                         annotation_font_size=9, annotation_bgcolor='rgba(255,255,255,0.8)')
     _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, 24)
     fig_memory.update_layout(yaxis=dict(range=[0, 26]))
 
