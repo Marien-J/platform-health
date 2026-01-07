@@ -426,7 +426,241 @@ body {
     border-radius: 6px;
 }
 
+/* Performance Drill-down Section */
+.performance-drilldown-wrapper {
+    margin-bottom: 24px;
+}
+
+.performance-drilldown-card {
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: none;
+    background-color: #FFFFFF;
+}
+
+.performance-drilldown-card .card-header {
+    background-color: #F8FAFC;
+    border-bottom: 1px solid #E5E7EB;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 16px 20px;
+}
+
+.performance-drilldown-card .card-header h5 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.performance-drilldown-card .card-header h5 i {
+    color: #2563EB;
+}
+
+.performance-drilldown-card .card-body {
+    padding: 20px;
+}
+
+/* Drill-down Graphs Grid */
+.drilldown-graphs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.drilldown-graphs-grid.four-cols {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.drilldown-graph-container {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px;
+    height: 320px;
+    min-height: 320px;
+    max-height: 320px;
+    overflow: hidden;
+}
+
+.drilldown-graph {
+    height: 100%;
+    width: 100%;
+}
+
+/* Machine Status Overview (for Tableau/Alteryx) */
+.machine-status-container {
+    background-color: #F8FAFC;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.machine-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.machine-status-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 0;
+}
+
+.btn-clear-machine-filter {
+    padding: 4px 10px;
+    font-size: 12px;
+    background-color: #F3F4F6;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-clear-machine-filter:hover {
+    background-color: #E5E7EB;
+}
+
+.machine-status-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+}
+
+.machine-status-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 8px;
+    background-color: #FFFFFF;
+    border-radius: 6px;
+    border: 2px solid #E5E7EB;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.machine-status-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.machine-status-item.selected {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.machine-status-item.machine-status-critical {
+    background-color: #FEF2F2;
+    border-color: #FECACA;
+}
+
+.machine-status-item.machine-status-warning {
+    background-color: #FFFBEB;
+    border-color: #FDE68A;
+}
+
+.machine-status-item.machine-status-healthy {
+    background-color: #F0FDF4;
+    border-color: #BBF7D0;
+}
+
+.machine-status-item.machine-status-light {
+    background-color: #ECFEFF;
+    border-color: #A5F3FC;
+}
+
+.machine-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-bottom: 6px;
+}
+
+.machine-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.machine-alert-count {
+    font-size: 10px;
+    color: #6B7280;
+    margin-top: 4px;
+}
+
+/* Outlier Legend */
+.outlier-legend {
+    display: flex;
+    gap: 16px;
+    padding: 12px 16px;
+    background-color: #F9FAFB;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 12px;
+}
+
+.outlier-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.outlier-marker-warning {
+    width: 10px;
+    height: 10px;
+    background-color: #D97706;
+    transform: rotate(45deg);
+}
+
+.outlier-marker-critical {
+    width: 12px;
+    height: 12px;
+    color: #DC2626;
+    font-weight: bold;
+}
+
 /* Responsive adjustments */
+@media (max-width: 1400px) {
+    .drilldown-graphs-grid.four-cols {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .drilldown-graph-container {
+        height: 300px;
+        min-height: 300px;
+        max-height: 300px;
+    }
+
+    .machine-status-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .drilldown-graphs-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .drilldown-graphs-grid.four-cols {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .drilldown-graph-container {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .machine-status-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .platform-card-wrapper {
         min-width: 100%;
@@ -471,5 +705,29 @@ body {
 
     .ticket-modal .modal-footer .btn {
         width: 100%;
+    }
+
+    /* Drill-down responsive */
+    .drilldown-graphs-grid,
+    .drilldown-graphs-grid.four-cols {
+        grid-template-columns: 1fr;
+    }
+
+    .drilldown-graph-container {
+        height: 260px;
+        min-height: 260px;
+        max-height: 260px;
+    }
+
+    .machine-status-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .machine-status-item {
+        padding: 8px 6px;
+    }
+
+    .machine-name {
+        font-size: 10px;
     }
 }
