@@ -23,7 +23,7 @@ app = dash.Dash(
         dbc.themes.BOOTSTRAP,
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
     ],
-    assets_folder='../assets',
+    assets_folder='./assets',  # Uses src/assets with ALDI color scheme (styles_v2.css)
     title='Platform Health Dashboard',
     update_title='Loading...'
 )
