@@ -476,11 +476,14 @@ body {
     border: 1px solid #E5E7EB;
     border-radius: 8px;
     padding: 12px;
-    min-height: 280px;
+    height: 320px;
+    min-height: 320px;
+    max-height: 320px;
+    overflow: hidden;
 }
 
 .drilldown-graph {
-    height: 260px;
+    height: 100%;
     width: 100%;
 }
 
@@ -493,11 +496,32 @@ body {
     margin-bottom: 20px;
 }
 
+.machine-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .machine-status-title {
     font-size: 14px;
     font-weight: 700;
     color: #374151;
-    margin-bottom: 12px;
+    margin-bottom: 0;
+}
+
+.btn-clear-machine-filter {
+    padding: 4px 10px;
+    font-size: 12px;
+    background-color: #F3F4F6;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-clear-machine-filter:hover {
+    background-color: #E5E7EB;
 }
 
 .machine-status-grid {
@@ -513,13 +537,19 @@ body {
     padding: 10px 8px;
     background-color: #FFFFFF;
     border-radius: 6px;
-    border: 1px solid #E5E7EB;
+    border: 2px solid #E5E7EB;
     transition: all 0.15s ease;
+    cursor: pointer;
 }
 
 .machine-status-item:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.machine-status-item.selected {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 .machine-status-item.machine-status-critical {
@@ -595,6 +625,12 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .drilldown-graph-container {
+        height: 300px;
+        min-height: 300px;
+        max-height: 300px;
+    }
+
     .machine-status-grid {
         grid-template-columns: repeat(4, 1fr);
     }
@@ -607,6 +643,12 @@ body {
 
     .drilldown-graphs-grid.four-cols {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .drilldown-graph-container {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
     }
 
     .machine-status-grid {
@@ -667,11 +709,9 @@ body {
     }
 
     .drilldown-graph-container {
-        min-height: 250px;
-    }
-
-    .drilldown-graph {
-        height: 230px;
+        height: 260px;
+        min-height: 260px;
+        max-height: 260px;
     }
 
     .machine-status-grid {

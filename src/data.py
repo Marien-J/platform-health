@@ -626,3 +626,56 @@ def get_performance_data(platform_id: str, hours: int = 24) -> Dict[str, Any]:
     elif platform_id == 'alteryx':
         return get_alteryx_performance_data(hours)
     return {}
+
+
+def get_historical_stats(values: List[float], period: str = 'month') -> Dict[str, float]:
+    """
+    Calculate historical statistics (average and peak) for a metric.
+    Simulates historical data based on current values with some variation.
+
+    Args:
+        values: Current period values to base simulation on
+        period: 'month' for 30-day stats, 'week' for 7-day stats
+
+    Returns:
+        Dict with 'average' and 'peak' values
+    """
+    if not values:
+        return {'average': 0, 'peak': 0}
+
+    # Calculate base stats from current data
+    current_avg = sum(values) / len(values)
+    current_max = max(values)
+
+    # Simulate historical variation
+    random.seed(100)  # Consistent simulation
+
+    if period == 'month':
+        # Monthly stats: typically average is similar, peak is higher
+        avg_factor = random.uniform(0.92, 1.08)
+        peak_factor = random.uniform(1.1, 1.35)
+    else:  # week
+        # Weekly stats: closer to current values
+        avg_factor = random.uniform(0.95, 1.05)
+        peak_factor = random.uniform(1.05, 1.2)
+
+    return {
+        'average': round(current_avg * avg_factor, 2),
+        'peak': round(current_max * peak_factor, 2)
+    }
+
+
+def get_pipeline_summary() -> Dict[str, int]:
+    """Get current pipeline counts for EDLAP bar chart."""
+    random.seed(42)
+    total = 245
+    failed = random.randint(1, 5)
+    delayed = random.randint(3, 10)
+    successful = total - failed - delayed
+
+    return {
+        'successful': successful,
+        'delayed': delayed,
+        'failed': failed,
+        'total': total
+    }

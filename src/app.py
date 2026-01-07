@@ -35,6 +35,9 @@ server = app.server
 app.layout = dbc.Container([
     # Store for selected platform (no default filter - show all tickets)
     dcc.Store(id='selected-platform', data=None, storage_type='memory'),
+
+    # Store for selected machine (for Tableau/Alteryx filtering)
+    dcc.Store(id='selected-machine', data=None, storage_type='memory'),
     
     # Header
     dbc.Row([
@@ -164,10 +167,11 @@ def update_platform_cards(selected_platform_id):
 @callback(
     Output('performance-drilldown-container', 'children'),
     Output('performance-drilldown-container', 'style'),
-    Input('selected-platform', 'data')
+    Input('selected-platform', 'data'),
+    Input('selected-machine', 'data')
 )
-def update_performance_drilldown(selected_platform_id):
-    """Update the performance drill-down section based on selected platform."""
+def update_performance_drilldown(selected_platform_id, selected_machine):
+    """Update the performance drill-down section based on selected platform and machine."""
     if not selected_platform_id:
         # No platform selected - hide the drill-down
         return None, {'display': 'none'}
@@ -198,11 +202,47 @@ def update_performance_drilldown(selected_platform_id):
             ], className="d-flex align-items-center")
         ]),
         dbc.CardBody([
-            create_performance_drilldown(selected_platform_id, perf_data)
+            create_performance_drilldown(selected_platform_id, perf_data, selected_machine)
         ])
     ], className="performance-drilldown-card")
 
     return drilldown_content, {'display': 'block'}
+
+
+@callback(
+    Output('selected-machine', 'data'),
+    Input({'type': 'machine-filter-btn', 'platform': dash.ALL, 'machine': dash.ALL}, 'n_clicks'),
+    Input({'type': 'machine-clear-btn', 'platform': dash.ALL}, 'n_clicks'),
+    Input('selected-platform', 'data'),
+    prevent_initial_call=True
+)
+def handle_machine_filter(machine_clicks, clear_clicks, selected_platform):
+    """Handle machine filter button clicks."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]['prop_id']
+    triggered_value = ctx.triggered[0]['value']
+
+    # If platform changed, clear the machine filter
+    if 'selected-platform' in triggered_id:
+        return None
+
+    # Handle clear button
+    if 'machine-clear-btn' in triggered_id:
+        return None
+
+    # Handle machine button clicks
+    if 'machine-filter-btn' in triggered_id:
+        if not triggered_value or triggered_value == 0:
+            return dash.no_update
+        import json
+        prop_id = triggered_id.rsplit('.', 1)[0]
+        component_id = json.loads(prop_id)
+        return component_id['machine']
+
+    return dash.no_update
 
 
 @callback(

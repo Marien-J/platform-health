@@ -406,41 +406,48 @@ def _add_threshold_lines(fig: go.Figure, thresholds: Dict[str, float], y_max: fl
     return fig
 
 
-def _add_outlier_markers(fig: go.Figure, timestamps: List[str], values: List[float],
-                         outliers: List[Dict], trace_index: int = 0) -> go.Figure:
-    """Add outlier markers to an existing trace."""
-    if not outliers:
-        return fig
+def _add_avg_peak_lines(fig: go.Figure, avg_value: float, peak_value: float,
+                        period_label: str = 'month') -> go.Figure:
+    """Add average and peak reference lines to a figure."""
+    fig.add_hline(
+        y=avg_value,
+        line_dash='dash',
+        line_color='#6B7280',
+        line_width=1.5,
+        annotation_text=f'Avg ({period_label})',
+        annotation_position='right',
+        annotation_font_size=10,
+        annotation_font_color='#6B7280'
+    )
+    fig.add_hline(
+        y=peak_value,
+        line_dash='dot',
+        line_color='#9333EA',
+        line_width=1.5,
+        annotation_text=f'Peak ({period_label})',
+        annotation_position='right',
+        annotation_font_size=10,
+        annotation_font_color='#9333EA'
+    )
+    return fig
 
-    warning_x, warning_y = [], []
-    critical_x, critical_y = [], []
 
-    for outlier in outliers:
-        idx = outlier['index']
-        if idx < len(timestamps):
-            if outlier['severity'] == 'critical':
-                critical_x.append(timestamps[idx])
-                critical_y.append(values[idx])
-            else:
-                warning_x.append(timestamps[idx])
-                warning_y.append(values[idx])
+def _add_above_avg_markers(fig: go.Figure, timestamps: List[str], values: List[float],
+                           avg_value: float) -> go.Figure:
+    """Add orange markers for values exceeding the average."""
+    above_avg_x, above_avg_y = [], []
 
-    if warning_x:
+    for i, val in enumerate(values):
+        if val > avg_value:
+            above_avg_x.append(timestamps[i])
+            above_avg_y.append(val)
+
+    if above_avg_x:
         fig.add_trace(go.Scatter(
-            x=warning_x, y=warning_y,
+            x=above_avg_x, y=above_avg_y,
             mode='markers',
-            marker=dict(size=10, color=GRAPH_COLORS['warning'], symbol='diamond'),
-            name='Warning',
-            hoverinfo='skip',
-            showlegend=False
-        ))
-
-    if critical_x:
-        fig.add_trace(go.Scatter(
-            x=critical_x, y=critical_y,
-            mode='markers',
-            marker=dict(size=12, color=GRAPH_COLORS['danger'], symbol='x'),
-            name='Critical',
+            marker=dict(size=8, color=GRAPH_COLORS['warning'], symbol='diamond'),
+            name='Above Avg',
             hoverinfo='skip',
             showlegend=False
         ))
@@ -450,9 +457,11 @@ def _add_outlier_markers(fig: go.Figure, timestamps: List[str], values: List[flo
 
 def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
     """Create EDLAP-specific drill-down graphs."""
+    from data import get_historical_stats, get_pipeline_summary
+
     timestamps = data['timestamps']
 
-    # Graph 1: Active Users
+    # Graph 1: Active Users - with avg/peak of last month, no warning/critical
     fig_users = _create_base_figure('Active Users')
     users_data = data['users']
     fig_users.add_trace(go.Scatter(
@@ -463,47 +472,28 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(37, 99, 235, 0.1)'
     ))
-    _add_outlier_markers(fig_users, timestamps, users_data['values'], users_data['outliers'])
-    _add_threshold_lines(fig_users, {'warning': 150, 'critical': 200}, max(users_data['values']))
+    # Add avg/peak lines instead of warning/critical
+    user_stats = get_historical_stats(users_data['values'], 'month')
+    _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
 
-    # Graph 2: Pipelines (stacked area for total, failed, delayed)
-    fig_pipelines = _create_base_figure('Pipeline Status')
-    fig_pipelines.add_trace(go.Scatter(
-        x=timestamps, y=data['total_pipelines']['values'],
-        mode='lines',
-        name='Total Pipelines',
-        line=dict(color=GRAPH_COLORS['neutral'], width=2),
-        fill='tozeroy',
-        fillcolor='rgba(107, 114, 128, 0.1)'
+    # Graph 2: Pipelines - BAR CHART showing successful/delayed/failed
+    pipeline_summary = get_pipeline_summary()
+    fig_pipelines = _create_base_figure('Pipeline Status (Current)')
+    fig_pipelines.add_trace(go.Bar(
+        x=['Successful', 'Delayed', 'Failed'],
+        y=[pipeline_summary['successful'], pipeline_summary['delayed'], pipeline_summary['failed']],
+        marker_color=[GRAPH_COLORS['success'], GRAPH_COLORS['warning'], GRAPH_COLORS['danger']],
+        text=[pipeline_summary['successful'], pipeline_summary['delayed'], pipeline_summary['failed']],
+        textposition='outside',
+        textfont=dict(size=14, color='#374151')
     ))
-    fig_pipelines.add_trace(go.Scatter(
-        x=timestamps, y=data['delayed_pipelines']['values'],
-        mode='lines',
-        name='Delayed',
-        line=dict(color=GRAPH_COLORS['warning'], width=2),
-        yaxis='y2'
-    ))
-    fig_pipelines.add_trace(go.Scatter(
-        x=timestamps, y=data['failed_pipelines']['values'],
-        mode='lines',
-        name='Failed',
-        line=dict(color=GRAPH_COLORS['danger'], width=2),
-        yaxis='y2'
-    ))
-    _add_outlier_markers(fig_pipelines, timestamps, data['failed_pipelines']['values'],
-                         data['failed_pipelines']['outliers'])
     fig_pipelines.update_layout(
-        yaxis2=dict(
-            title='Failed/Delayed',
-            overlaying='y',
-            side='right',
-            showgrid=False,
-            tickfont=dict(size=10, color='#6B7280')
-        ),
-        yaxis=dict(title='Total')
+        showlegend=False,
+        yaxis=dict(title='Count', range=[0, max(pipeline_summary['successful'], 50) * 1.15]),
+        xaxis=dict(title='')
     )
 
-    # Graph 3: Tickets (open and overdue)
+    # Graph 3: Tickets (open and overdue) - with avg/peak of last month
     fig_tickets = _create_base_figure('Tickets')
     fig_tickets.add_trace(go.Scatter(
         x=timestamps, y=data['open_tickets']['values'],
@@ -519,9 +509,9 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Overdue',
         line=dict(color=GRAPH_COLORS['danger'], width=2)
     ))
-    _add_outlier_markers(fig_tickets, timestamps, data['overdue_tickets']['values'],
-                         data['overdue_tickets']['outliers'])
-    _add_threshold_lines(fig_tickets, {'warning': 5, 'critical': 10}, max(data['overdue_tickets']['values']))
+    # Add avg/peak lines for open tickets instead of thresholds
+    ticket_stats = get_historical_stats(data['open_tickets']['values'], 'month')
+    _add_avg_peak_lines(fig_tickets, ticket_stats['average'], ticket_stats['peak'], 'month')
 
     return html.Div([
         html.Div([
@@ -538,9 +528,11 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
 
 def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     """Create SAP B/W-specific drill-down graphs."""
+    from data import get_historical_stats
+
     timestamps = data['timestamps']
 
-    # Graph 1: Active Users
+    # Graph 1: Active Users - with avg/peak of last month, no warning/critical
     fig_users = _create_base_figure('Active Users')
     users_data = data['users']
     fig_users.add_trace(go.Scatter(
@@ -551,10 +543,10 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(37, 99, 235, 0.1)'
     ))
-    _add_outlier_markers(fig_users, timestamps, users_data['values'], users_data['outliers'])
-    _add_threshold_lines(fig_users, {'warning': 80, 'critical': 120}, max(users_data['values']))
+    user_stats = get_historical_stats(users_data['values'], 'month')
+    _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
 
-    # Graph 2: Memory (TB) with 24TB max reference
+    # Graph 2: Memory (TB) with 24TB max reference - keep thresholds (hardware limit)
     fig_memory = _create_base_figure('Memory Usage (TB)')
     memory_data = data['memory_tb']
     fig_memory.add_trace(go.Scatter(
@@ -565,14 +557,13 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(124, 58, 237, 0.1)'
     ))
-    _add_outlier_markers(fig_memory, timestamps, memory_data['values'], memory_data['outliers'])
     fig_memory.add_hline(y=24, line_dash='solid', line_color='#374151', line_width=1,
                          annotation_text='Max (24TB)', annotation_position='right',
                          annotation_font_size=10)
     _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, 24)
     fig_memory.update_layout(yaxis=dict(range=[0, 26]))
 
-    # Graph 3: Dashboard Load Time
+    # Graph 3: Dashboard Load Time - with avg/peak of last week, orange when above avg
     fig_load = _create_base_figure('Avg Dashboard Load Time (sec)')
     load_data = data['load_time_sec']
     fig_load.add_trace(go.Scatter(
@@ -583,10 +574,11 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(8, 145, 178, 0.1)'
     ))
-    _add_outlier_markers(fig_load, timestamps, load_data['values'], load_data['outliers'])
-    _add_threshold_lines(fig_load, {'warning': 8, 'critical': 12}, max(load_data['values']))
+    load_stats = get_historical_stats(load_data['values'], 'week')
+    _add_avg_peak_lines(fig_load, load_stats['average'], load_stats['peak'], 'week')
+    _add_above_avg_markers(fig_load, timestamps, load_data['values'], load_stats['average'])
 
-    # Graph 4: CPU Usage
+    # Graph 4: CPU Usage - with avg/peak of last week, orange when above avg
     fig_cpu = _create_base_figure('CPU Utilization (%)')
     cpu_data = data['cpu_percent']
     fig_cpu.add_trace(go.Scatter(
@@ -597,8 +589,9 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(5, 150, 105, 0.1)'
     ))
-    _add_outlier_markers(fig_cpu, timestamps, cpu_data['values'], cpu_data['outliers'])
-    _add_threshold_lines(fig_cpu, {'warning': 75, 'critical': 90}, 100)
+    cpu_stats = get_historical_stats(cpu_data['values'], 'week')
+    _add_avg_peak_lines(fig_cpu, cpu_stats['average'], cpu_stats['peak'], 'week')
+    _add_above_avg_markers(fig_cpu, timestamps, cpu_data['values'], cpu_stats['average'])
     fig_cpu.update_layout(yaxis=dict(range=[0, 105]))
 
     return html.Div([
@@ -618,13 +611,17 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
 
 
 def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
-                                   load_time_label: str = 'Avg Dashboard Load Time (sec)') -> html.Div:
+                                   load_time_label: str = 'Avg Dashboard Load Time (sec)',
+                                   selected_machine: str = None) -> html.Div:
     """Create drill-down graphs for multi-machine platforms (Tableau/Alteryx)."""
+    from data import get_historical_stats
+
     timestamps = data['timestamps']
     machines = data['machines']
     aggregated = data['aggregated']
+    platform_id = 'tableau' if 'TAB' in list(machines.keys())[0] else 'alteryx'
 
-    # Graph 1: Total Users (aggregated)
+    # Graph 1: Total Users (aggregated) - with avg/peak of last month
     fig_users = _create_base_figure('Total Active Users')
     users_data = aggregated['users']
     fig_users.add_trace(go.Scatter(
@@ -635,34 +632,48 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
         fill='tozeroy',
         fillcolor='rgba(37, 99, 235, 0.1)'
     ))
-    _add_outlier_markers(fig_users, timestamps, users_data['values'], users_data['outliers'])
+    user_stats = get_historical_stats(users_data['values'], 'month')
+    _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
 
-    # Graph 2: Average Memory (aggregated) with per-machine detail
+    # Graph 2: Memory Usage - simplified legend, show per-machine only if one selected
     fig_memory = _create_base_figure(f'Memory Usage (%) - {len(machines)} Machines')
-    # Add per-machine lines (lighter)
-    for i, (machine_name, machine_data) in enumerate(machines.items()):
+
+    if selected_machine and selected_machine in machines:
+        # Show only selected machine
+        machine_data = machines[selected_machine]
         fig_memory.add_trace(go.Scatter(
             x=timestamps, y=machine_data['memory_percent'],
             mode='lines',
-            name=machine_name,
-            line=dict(color=GRAPH_COLORS['machines'][i % len(GRAPH_COLORS['machines'])], width=1),
-            opacity=0.4,
-            showlegend=True,
-            legendgroup='machines'
+            name=selected_machine,
+            line=dict(color=GRAPH_COLORS['primary'], width=2),
+            fill='tozeroy',
+            fillcolor='rgba(37, 99, 235, 0.1)'
         ))
-    # Add average line (bold)
-    memory_data = aggregated['memory_percent']
-    fig_memory.add_trace(go.Scatter(
-        x=timestamps, y=memory_data['values'],
-        mode='lines',
-        name='Average',
-        line=dict(color=GRAPH_COLORS['secondary'], width=3),
-    ))
-    _add_outlier_markers(fig_memory, timestamps, memory_data['values'], memory_data['outliers'])
-    _add_threshold_lines(fig_memory, {'warning': 75, 'critical': 90}, 100)
+    else:
+        # Show per-machine lines (lighter, no legend to avoid clutter)
+        for i, (machine_name, machine_data) in enumerate(machines.items()):
+            fig_memory.add_trace(go.Scatter(
+                x=timestamps, y=machine_data['memory_percent'],
+                mode='lines',
+                name=machine_name,
+                line=dict(color=GRAPH_COLORS['machines'][i % len(GRAPH_COLORS['machines'])], width=1),
+                opacity=0.35,
+                showlegend=False
+            ))
+        # Add average line (bold, with legend)
+        memory_data = aggregated['memory_percent']
+        fig_memory.add_trace(go.Scatter(
+            x=timestamps, y=memory_data['values'],
+            mode='lines',
+            name='Average',
+            line=dict(color=GRAPH_COLORS['secondary'], width=3),
+        ))
+
+    mem_stats = get_historical_stats(aggregated['memory_percent']['values'], 'week')
+    _add_avg_peak_lines(fig_memory, mem_stats['average'], mem_stats['peak'], 'week')
     fig_memory.update_layout(yaxis=dict(range=[0, 105]))
 
-    # Graph 3: Load Time (aggregated)
+    # Graph 3: Load Time (aggregated) - with avg/peak of last week, orange when above avg
     fig_load = _create_base_figure(load_time_label)
     load_data = aggregated['load_time_sec']
     fig_load.add_trace(go.Scatter(
@@ -673,34 +684,50 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
         fill='tozeroy',
         fillcolor='rgba(8, 145, 178, 0.1)'
     ))
-    _add_outlier_markers(fig_load, timestamps, load_data['values'], load_data['outliers'])
+    load_stats = get_historical_stats(load_data['values'], 'week')
+    _add_avg_peak_lines(fig_load, load_stats['average'], load_stats['peak'], 'week')
+    _add_above_avg_markers(fig_load, timestamps, load_data['values'], load_stats['average'])
 
-    # Graph 4: Average CPU (aggregated) with per-machine detail
+    # Graph 4: CPU Utilization - simplified legend, show per-machine only if one selected
     fig_cpu = _create_base_figure(f'CPU Utilization (%) - {len(machines)} Machines')
-    # Add per-machine lines (lighter)
-    for i, (machine_name, machine_data) in enumerate(machines.items()):
+
+    if selected_machine and selected_machine in machines:
+        # Show only selected machine
+        machine_data = machines[selected_machine]
         fig_cpu.add_trace(go.Scatter(
             x=timestamps, y=machine_data['cpu_percent'],
             mode='lines',
-            name=machine_name,
-            line=dict(color=GRAPH_COLORS['machines'][i % len(GRAPH_COLORS['machines'])], width=1),
-            opacity=0.4,
-            showlegend=True,
-            legendgroup='machines'
+            name=selected_machine,
+            line=dict(color=GRAPH_COLORS['success'], width=2),
+            fill='tozeroy',
+            fillcolor='rgba(5, 150, 105, 0.1)'
         ))
-    # Add average line (bold)
-    cpu_data = aggregated['cpu_percent']
-    fig_cpu.add_trace(go.Scatter(
-        x=timestamps, y=cpu_data['values'],
-        mode='lines',
-        name='Average',
-        line=dict(color=GRAPH_COLORS['success'], width=3),
-    ))
-    _add_outlier_markers(fig_cpu, timestamps, cpu_data['values'], cpu_data['outliers'])
-    _add_threshold_lines(fig_cpu, {'warning': 70, 'critical': 85}, 100)
+    else:
+        # Show per-machine lines (lighter, no legend)
+        for i, (machine_name, machine_data) in enumerate(machines.items()):
+            fig_cpu.add_trace(go.Scatter(
+                x=timestamps, y=machine_data['cpu_percent'],
+                mode='lines',
+                name=machine_name,
+                line=dict(color=GRAPH_COLORS['machines'][i % len(GRAPH_COLORS['machines'])], width=1),
+                opacity=0.35,
+                showlegend=False
+            ))
+        # Add average line (bold, with legend)
+        cpu_data = aggregated['cpu_percent']
+        fig_cpu.add_trace(go.Scatter(
+            x=timestamps, y=cpu_data['values'],
+            mode='lines',
+            name='Average',
+            line=dict(color=GRAPH_COLORS['success'], width=3),
+        ))
+
+    cpu_stats = get_historical_stats(aggregated['cpu_percent']['values'], 'week')
+    _add_avg_peak_lines(fig_cpu, cpu_stats['average'], cpu_stats['peak'], 'week')
+    _add_above_avg_markers(fig_cpu, timestamps, aggregated['cpu_percent']['values'], cpu_stats['average'])
     fig_cpu.update_layout(yaxis=dict(range=[0, 105]))
 
-    # Create machine status summary
+    # Create machine status summary with clickable buttons
     machine_outliers = data.get('machine_outliers', {})
     machine_status_items = []
     for machine_name in machines.keys():
@@ -719,19 +746,35 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             status_color = GRAPH_COLORS['success']
             status_class = 'machine-status-healthy'
 
+        # Add selected class if this machine is selected
+        if selected_machine == machine_name:
+            status_class += ' selected'
+
         machine_status_items.append(
             html.Div([
                 html.Span(className='machine-status-dot', style={'backgroundColor': status_color}),
                 html.Span(machine_name, className='machine-name'),
                 html.Span(f'{total_outliers} alerts' if total_outliers else 'OK',
                          className='machine-alert-count')
-            ], className=f'machine-status-item {status_class}')
+            ],
+            id={'type': 'machine-filter-btn', 'platform': platform_id, 'machine': machine_name},
+            n_clicks=0,
+            className=f'machine-status-item {status_class}')
         )
 
     return html.Div([
         # Machine status overview
         html.Div([
-            html.H6(f'{platform_name} Server Status', className='machine-status-title'),
+            html.Div([
+                html.H6(f'{platform_name} Server Status', className='machine-status-title'),
+                html.Button(
+                    'Clear Filter',
+                    id={'type': 'machine-clear-btn', 'platform': platform_id},
+                    n_clicks=0,
+                    className='btn-clear-machine-filter',
+                    style={'display': 'inline-block' if selected_machine else 'none'}
+                )
+            ], className='machine-status-header'),
             html.Div(machine_status_items, className='machine-status-grid')
         ], className='machine-status-container'),
         # Graphs
@@ -752,14 +795,15 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
     ])
 
 
-def create_performance_drilldown(platform_id: str, data: Dict[str, Any]) -> html.Div:
+def create_performance_drilldown(platform_id: str, data: Dict[str, Any],
+                                  selected_machine: str = None) -> html.Div:
     """Create the appropriate drill-down view based on platform."""
     if platform_id == 'edlap':
         return create_edlap_drilldown(data)
     elif platform_id == 'sapbw':
         return create_sapbw_drilldown(data)
     elif platform_id == 'tableau':
-        return create_multi_machine_drilldown(data, 'Tableau', 'Avg Dashboard Load Time (sec)')
+        return create_multi_machine_drilldown(data, 'Tableau', 'Avg Dashboard Load Time (sec)', selected_machine)
     elif platform_id == 'alteryx':
-        return create_multi_machine_drilldown(data, 'Alteryx', 'Avg Workflow Execution Time (sec)')
+        return create_multi_machine_drilldown(data, 'Alteryx', 'Avg Workflow Execution Time (sec)', selected_machine)
     return html.Div("No performance data available")
