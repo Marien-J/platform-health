@@ -15,6 +15,7 @@ from components import (
     create_ticket_detail_modal, get_platform_name, get_servicenow_url,
     create_performance_drilldown, STATUS_COLORS, PRIORITY_COLORS
 )
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
 
 # Initialize the Dash app
 app = dash.Dash(
@@ -23,7 +24,8 @@ app = dash.Dash(
         dbc.themes.BOOTSTRAP,
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
     ],
-    assets_folder='../assets',
+    assets_folder=ASSETS_PATH,
+    assets_url_path='/assets',
     title='Platform Health Dashboard',
     update_title='Loading...'
 )

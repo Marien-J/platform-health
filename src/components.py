@@ -8,17 +8,17 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import List, Dict, Any
 
-# Color schemes for status indicators
+# Color schemes for status indicators (ALDI colors)
 STATUS_COLORS = {
-    'healthy': {'bg': '#059669', 'light': '#D1FAE5', 'text': '#065F46'},
-    'attention': {'bg': '#D97706', 'light': '#FEF3C7', 'text': '#92400E'},
-    'critical': {'bg': '#DC2626', 'light': '#FEE2E2', 'text': '#991B1B'}
+    'healthy': {'bg': '#439539', 'light': '#E8F5E6', 'text': '#2D6427'},
+    'attention': {'bg': '#FF7800', 'light': '#FFF3E6', 'text': '#B35500'},
+    'critical': {'bg': '#D70000', 'light': '#FDEDED', 'text': '#990000'}
 }
 
 PRIORITY_COLORS = {
-    'High': {'bg': '#FEE2E2', 'text': '#991B1B'},
-    'Medium': {'bg': '#FEF3C7', 'text': '#92400E'},
-    'Low': {'bg': '#E5E7EB', 'text': '#374151'}
+    'High': {'bg': '#FDEDED', 'text': '#990000'},      # ALDI red
+    'Medium': {'bg': '#FFF3E6', 'text': '#B35500'},    # ALDI orange
+    'Low': {'bg': '#F5F4F0', 'text': '#393A34'}        # ALDI beige/charcoal
 }
 
 
@@ -326,29 +326,29 @@ def create_ticket_detail_modal() -> dbc.Modal:
     ], id='ticket-detail-modal', is_open=False, centered=True, size="lg", className="ticket-modal")
 
 
-# Graph colors for consistent theming
+# Graph colors for consistent theming (ALDI colors)
 GRAPH_COLORS = {
-    'primary': '#2563EB',      # Blue
-    'secondary': '#7C3AED',    # Purple
-    'success': '#059669',      # Green
-    'warning': '#D97706',      # Orange/Amber
-    'danger': '#DC2626',       # Red
-    'info': '#0891B2',         # Cyan
-    'neutral': '#6B7280',      # Gray
+    'primary': '#00005F',      # ALDI Navy
+    'secondary': '#55C3F0',    # ALDI Light Blue
+    'success': '#439539',      # ALDI Green
+    'warning': '#FF7800',      # ALDI Orange
+    'danger': '#D70000',       # ALDI Red
+    'info': '#55C3F0',         # ALDI Light Blue
+    'neutral': '#393A34',      # ALDI Charcoal
     'machines': [
-        '#2563EB', '#7C3AED', '#059669', '#D97706',
-        '#DC2626', '#0891B2', '#EC4899', '#F59E0B'
+        '#00005F', '#55C3F0', '#439539', '#FF7800',
+        '#D70000', '#95C11F', '#FFC800', '#D1CAB4'
     ]
 }
 
 
 def _create_base_figure(title: str = None) -> go.Figure:
-    """Create a base figure with consistent styling."""
+    """Create a base figure with consistent ALDI styling."""
     fig = go.Figure()
     fig.update_layout(
         title=dict(
             text=title,
-            font=dict(size=14, color='#374151'),
+            font=dict(size=14, color='#00005F'),  # ALDI Navy
             x=0,
             xanchor='left'
         ) if title else None,
@@ -369,16 +369,16 @@ def _create_base_figure(title: str = None) -> go.Figure:
         xaxis=dict(
             showgrid=True,
             gridwidth=1,
-            gridcolor='#E5E7EB',
-            linecolor='#D1D5DB',
-            tickfont=dict(size=10, color='#6B7280')
+            gridcolor='#D1CAB4',  # ALDI Beige
+            linecolor='#D1CAB4',  # ALDI Beige
+            tickfont=dict(size=10, color='#393A34')  # ALDI Charcoal
         ),
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
-            gridcolor='#E5E7EB',
-            linecolor='#D1D5DB',
-            tickfont=dict(size=10, color='#6B7280'),
+            gridcolor='#D1CAB4',  # ALDI Beige
+            linecolor='#D1CAB4',  # ALDI Beige
+            tickfont=dict(size=10, color='#393A34'),  # ALDI Charcoal
             zeroline=False
         )
     )
@@ -420,23 +420,23 @@ def _add_avg_peak_lines(fig: go.Figure, avg_value: float, peak_value: float,
     fig.add_hline(
         y=avg_value,
         line_dash='dash',
-        line_color='#6B7280',
+        line_color='#393A34',  # ALDI Charcoal
         line_width=1.5,
         annotation_text=f'Avg ({period_label}): {avg_value:.1f}',
         annotation_position='top left',
         annotation_font_size=9,
-        annotation_font_color='#6B7280',
+        annotation_font_color='#393A34',  # ALDI Charcoal
         annotation_bgcolor='rgba(255,255,255,0.8)'
     )
     fig.add_hline(
         y=peak_value,
         line_dash='dot',
-        line_color='#9333EA',
+        line_color='#55C3F0',  # ALDI Light Blue
         line_width=1.5,
         annotation_text=f'Peak ({period_label}): {peak_value:.1f}',
         annotation_position='top left',
         annotation_font_size=9,
-        annotation_font_color='#9333EA',
+        annotation_font_color='#55C3F0',  # ALDI Light Blue
         annotation_bgcolor='rgba(255,255,255,0.8)'
     )
     return fig
@@ -480,7 +480,7 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Users',
         line=dict(color=GRAPH_COLORS['primary'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(37, 99, 235, 0.1)'
+        fillcolor='rgba(0, 0, 95, 0.1)'  # ALDI Navy with opacity
     ))
     # Add avg/peak lines instead of warning/critical
     user_stats = get_historical_stats(users_data['values'], 'month')
@@ -511,7 +511,7 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Open Tickets',
         line=dict(color=GRAPH_COLORS['info'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(8, 145, 178, 0.1)'
+        fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
     fig_tickets.add_trace(go.Scatter(
         x=timestamps, y=data['overdue_tickets']['values'],
@@ -551,7 +551,7 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Users',
         line=dict(color=GRAPH_COLORS['primary'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(37, 99, 235, 0.1)'
+        fillcolor='rgba(0, 0, 95, 0.1)'  # ALDI Navy with opacity
     ))
     user_stats = get_historical_stats(users_data['values'], 'month')
     _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
@@ -565,9 +565,9 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Memory (TB)',
         line=dict(color=GRAPH_COLORS['secondary'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(124, 58, 237, 0.1)'
+        fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
-    fig_memory.add_hline(y=24, line_dash='solid', line_color='#374151', line_width=1,
+    fig_memory.add_hline(y=24, line_dash='solid', line_color='#393A34', line_width=1,  # ALDI Charcoal
                          annotation_text='Max: 24TB', annotation_position='top left',
                          annotation_font_size=9, annotation_bgcolor='rgba(255,255,255,0.8)')
     _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, 24)
@@ -582,7 +582,7 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         name='Load Time (s)',
         line=dict(color=GRAPH_COLORS['info'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(8, 145, 178, 0.1)'
+        fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
     load_stats = get_historical_stats(load_data['values'], 'week')
     _add_avg_peak_lines(fig_load, load_stats['average'], load_stats['peak'], 'week')
@@ -597,7 +597,7 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         name='CPU %',
         line=dict(color=GRAPH_COLORS['success'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(5, 150, 105, 0.1)'
+        fillcolor='rgba(67, 149, 57, 0.1)'  # ALDI Green with opacity
     ))
     cpu_stats = get_historical_stats(cpu_data['values'], 'week')
     _add_avg_peak_lines(fig_cpu, cpu_stats['average'], cpu_stats['peak'], 'week')
@@ -640,7 +640,7 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
         name='Total Users',
         line=dict(color=GRAPH_COLORS['primary'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(37, 99, 235, 0.1)'
+        fillcolor='rgba(0, 0, 95, 0.1)'  # ALDI Navy with opacity
     ))
     user_stats = get_historical_stats(users_data['values'], 'month')
     _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
@@ -657,7 +657,7 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             name=selected_machine,
             line=dict(color=GRAPH_COLORS['primary'], width=2),
             fill='tozeroy',
-            fillcolor='rgba(37, 99, 235, 0.1)'
+            fillcolor='rgba(0, 0, 95, 0.1)'  # ALDI Navy with opacity
         ))
     else:
         # Show per-machine lines (lighter, no legend to avoid clutter)
@@ -692,7 +692,7 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
         name='Load Time',
         line=dict(color=GRAPH_COLORS['info'], width=2),
         fill='tozeroy',
-        fillcolor='rgba(8, 145, 178, 0.1)'
+        fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
     load_stats = get_historical_stats(load_data['values'], 'week')
     _add_avg_peak_lines(fig_load, load_stats['average'], load_stats['peak'], 'week')
@@ -710,7 +710,7 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             name=selected_machine,
             line=dict(color=GRAPH_COLORS['success'], width=2),
             fill='tozeroy',
-            fillcolor='rgba(5, 150, 105, 0.1)'
+            fillcolor='rgba(67, 149, 57, 0.1)'  # ALDI Green with opacity
         ))
     else:
         # Show per-machine lines (lighter, no legend)
