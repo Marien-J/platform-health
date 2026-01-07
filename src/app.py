@@ -9,11 +9,11 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 import os
 
-from data import get_platforms, get_tickets, get_summary_counts
+from data import get_platforms, get_tickets, get_summary_counts, get_performance_data
 from components import (
     create_platform_card, create_ticket_table, create_summary_bar,
     create_ticket_detail_modal, get_platform_name, get_servicenow_url,
-    STATUS_COLORS, PRIORITY_COLORS
+    create_performance_drilldown, STATUS_COLORS, PRIORITY_COLORS
 )
 
 # Initialize the Dash app
@@ -52,8 +52,11 @@ app.layout = dbc.Container([
     
     # Platform Cards
     html.Div(id='platform-cards', className="platform-cards-container"),
-    
-    # Drill-down Section
+
+    # Performance Drill-down Section (conditionally shown)
+    html.Div(id='performance-drilldown-container', className="performance-drilldown-wrapper"),
+
+    # Ticket Drill-down Section
     dbc.Card([
         dbc.CardHeader([
             html.Div([
@@ -156,6 +159,50 @@ def update_platform_cards(selected_platform_id):
             )
         )
     return cards
+
+
+@callback(
+    Output('performance-drilldown-container', 'children'),
+    Output('performance-drilldown-container', 'style'),
+    Input('selected-platform', 'data')
+)
+def update_performance_drilldown(selected_platform_id):
+    """Update the performance drill-down section based on selected platform."""
+    if not selected_platform_id:
+        # No platform selected - hide the drill-down
+        return None, {'display': 'none'}
+
+    # Get platform info for the header
+    platforms = get_platforms()
+    platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
+    platform_name = platform['name'] if platform else 'Unknown'
+
+    # Get performance data for the selected platform
+    perf_data = get_performance_data(selected_platform_id)
+
+    if not perf_data:
+        return html.Div("No performance data available"), {'display': 'block'}
+
+    # Create the drill-down card
+    drilldown_content = dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.H5([
+                    html.I(className="fa fa-chart-line me-2"),
+                    f"{platform_name} - System Performance"
+                ], className="mb-0"),
+                html.Small(
+                    "Last 24 hours • 5-minute intervals",
+                    className="text-muted ms-2"
+                )
+            ], className="d-flex align-items-center")
+        ]),
+        dbc.CardBody([
+            create_performance_drilldown(selected_platform_id, perf_data)
+        ])
+    ], className="performance-drilldown-card")
+
+    return drilldown_content, {'display': 'block'}
 
 
 @callback(
