@@ -138,6 +138,58 @@ body {
     flex: 1;
     min-width: 240px;
     max-width: 320px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Drag and Drop Styles */
+.platform-card-wrapper[draggable="true"] {
+    cursor: grab;
+}
+
+.platform-card-wrapper[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.platform-card-wrapper.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.platform-card-wrapper.drag-over {
+    position: relative;
+}
+
+.platform-card-wrapper.drag-over-left::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: var(--aldi-light-blue);
+    border-radius: 2px;
+    z-index: 10;
+}
+
+.platform-card-wrapper.drag-over-right::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: var(--aldi-light-blue);
+    border-radius: 2px;
+    z-index: 10;
+}
+
+.platform-card-placeholder {
+    flex: 1;
+    min-width: 240px;
+    max-width: 320px;
+    border: 2px dashed var(--aldi-light-blue);
+    border-radius: 12px;
+    background-color: rgba(85, 195, 240, 0.1);
 }
 
 .platform-card {
