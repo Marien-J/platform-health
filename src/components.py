@@ -414,20 +414,22 @@ def _add_avg_peak_lines(fig: go.Figure, avg_value: float, peak_value: float,
         line_dash='dash',
         line_color='#6B7280',
         line_width=1.5,
-        annotation_text=f'Avg ({period_label})',
-        annotation_position='right',
-        annotation_font_size=10,
-        annotation_font_color='#6B7280'
+        annotation_text=f'Avg ({period_label}): {avg_value:.1f}',
+        annotation_position='top left',
+        annotation_font_size=9,
+        annotation_font_color='#6B7280',
+        annotation_bgcolor='rgba(255,255,255,0.8)'
     )
     fig.add_hline(
         y=peak_value,
         line_dash='dot',
         line_color='#9333EA',
         line_width=1.5,
-        annotation_text=f'Peak ({period_label})',
-        annotation_position='right',
-        annotation_font_size=10,
-        annotation_font_color='#9333EA'
+        annotation_text=f'Peak ({period_label}): {peak_value:.1f}',
+        annotation_position='top left',
+        annotation_font_size=9,
+        annotation_font_color='#9333EA',
+        annotation_bgcolor='rgba(255,255,255,0.8)'
     )
     return fig
 
@@ -728,23 +730,47 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
     fig_cpu.update_layout(yaxis=dict(range=[0, 105]))
 
     # Create machine status summary with clickable buttons
-    machine_outliers = data.get('machine_outliers', {})
     machine_status_items = []
-    for machine_name in machines.keys():
-        outliers = machine_outliers.get(machine_name, {})
-        mem_outliers = len(outliers.get('memory', []))
-        cpu_outliers = len(outliers.get('cpu', []))
-        total_outliers = mem_outliers + cpu_outliers
+    for machine_name, machine_data in machines.items():
+        # Calculate recent metrics (last 12 data points = 1 hour)
+        recent_cpu = machine_data['cpu_percent'][-12:]
+        recent_mem = machine_data['memory_percent'][-12:]
+        avg_cpu = sum(recent_cpu) / len(recent_cpu)
+        avg_mem = sum(recent_mem) / len(recent_mem)
+        max_cpu = max(recent_cpu)
+        max_mem = max(recent_mem)
 
-        if total_outliers > 5:
+        # Determine load status based on recent averages
+        combined_load = (avg_cpu + avg_mem) / 2
+
+        # Check for notable events
+        had_cpu_spike = max_cpu >= 95
+        had_mem_spike = max_mem >= 95
+        cpu_above_daily_avg = avg_cpu > sum(machine_data['cpu_percent']) / len(machine_data['cpu_percent']) * 1.1
+
+        # Determine status and color
+        if combined_load >= 75 or had_cpu_spike or had_mem_spike:
             status_color = GRAPH_COLORS['danger']
             status_class = 'machine-status-critical'
-        elif total_outliers > 0:
+            if had_cpu_spike or had_mem_spike:
+                status_text = 'Spike ↑'
+            else:
+                status_text = 'High load'
+        elif combined_load >= 55 or cpu_above_daily_avg:
             status_color = GRAPH_COLORS['warning']
             status_class = 'machine-status-warning'
-        else:
+            if cpu_above_daily_avg:
+                status_text = 'Above avg'
+            else:
+                status_text = 'Busy'
+        elif combined_load >= 35:
             status_color = GRAPH_COLORS['success']
             status_class = 'machine-status-healthy'
+            status_text = 'Normal'
+        else:
+            status_color = GRAPH_COLORS['info']
+            status_class = 'machine-status-light'
+            status_text = 'Light'
 
         # Add selected class if this machine is selected
         if selected_machine == machine_name:
@@ -754,8 +780,7 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             html.Div([
                 html.Span(className='machine-status-dot', style={'backgroundColor': status_color}),
                 html.Span(machine_name, className='machine-name'),
-                html.Span(f'{total_outliers} alerts' if total_outliers else 'OK',
-                         className='machine-alert-count')
+                html.Span(status_text, className='machine-alert-count')
             ],
             id={'type': 'machine-filter-btn', 'platform': platform_id, 'machine': machine_name},
             n_clicks=0,

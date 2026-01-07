@@ -567,6 +567,11 @@ body {
     border-color: #BBF7D0;
 }
 
+.machine-status-item.machine-status-light {
+    background-color: #ECFEFF;
+    border-color: #A5F3FC;
+}
+
 .machine-status-dot {
     width: 10px;
     height: 10px;
