@@ -35,8 +35,8 @@ server = app.server
 
 # Layout
 app.layout = dbc.Container([
-    # Store for selected platform (no default filter - show all tickets)
-    dcc.Store(id='selected-platform', data=None, storage_type='memory'),
+    # Store for selected platforms (list of platform IDs - empty list means show all tickets)
+    dcc.Store(id='selected-platform', data=[], storage_type='memory'),
 
     # Store for selected machine (for Tableau/Alteryx filtering)
     dcc.Store(id='selected-machine', data=None, storage_type='memory'),
@@ -71,13 +71,17 @@ app.layout = dbc.Container([
     dbc.Card([
         dbc.CardHeader([
             html.Div([
-                html.H5(id='ticket-section-title', className="mb-0"),
-                html.Button(
-                    "Clear Filter",
-                    id='clear-filter-btn',
-                    className="btn-clear-filter",
-                    style={'display': 'none'}
-                )
+                html.Div([
+                    html.H5(id='ticket-section-title', className="mb-0"),
+                    html.Button(
+                        "Clear All Filters",
+                        id='clear-filter-btn',
+                        className="btn-clear-filter",
+                        style={'display': 'none'}
+                    )
+                ], className="ticket-header-top"),
+                # Active filter badges container (shown vertically in order of selection)
+                html.Div(id='active-filters-container', className="active-filters-container")
             ], className="ticket-header")
         ]),
         dbc.CardBody([
@@ -156,10 +160,14 @@ def update_summary_bar(_):
     Input('selected-platform', 'data'),
     Input('card-order', 'data')
 )
-def update_platform_cards(selected_platform_id, card_order):
+def update_platform_cards(selected_platforms, card_order):
     """Render all platform cards in the specified order."""
     platforms = get_platforms()
     platforms_dict = {p['id']: p for p in platforms}
+
+    # Ensure selected_platforms is a list
+    if selected_platforms is None:
+        selected_platforms = []
 
     # Use stored order, falling back to default if not set
     if not card_order:
@@ -176,7 +184,7 @@ def update_platform_cards(selected_platform_id, card_order):
     for platform_id in ordered_ids:
         platform = platforms_dict.get(platform_id)
         if platform:
-            is_selected = platform['id'] == selected_platform_id
+            is_selected = platform['id'] in selected_platforms
             cards.append(
                 html.Div(
                     create_platform_card(platform, is_selected),
@@ -196,11 +204,18 @@ def update_platform_cards(selected_platform_id, card_order):
     Input('selected-platform', 'data'),
     Input('selected-machine', 'data')
 )
-def update_performance_drilldown(selected_platform_id, selected_machine):
-    """Update the performance drill-down section based on selected platform and machine."""
-    if not selected_platform_id:
+def update_performance_drilldown(selected_platforms, selected_machine):
+    """Update the performance drill-down section based on selected platforms and machine."""
+    # Ensure selected_platforms is a list
+    if selected_platforms is None:
+        selected_platforms = []
+
+    if not selected_platforms:
         # No platform selected - hide the drill-down
         return None, {'display': 'none'}
+
+    # Show drilldown for the first selected platform only
+    selected_platform_id = selected_platforms[0]
 
     # Get platform info for the header
     platforms = get_platforms()
@@ -242,7 +257,7 @@ def update_performance_drilldown(selected_platform_id, selected_machine):
     Input('selected-platform', 'data'),
     prevent_initial_call=True
 )
-def handle_machine_filter(machine_clicks, clear_clicks, selected_platform):
+def handle_machine_filter(machine_clicks, clear_clicks, selected_platforms):
     """Handle machine filter button clicks."""
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -251,7 +266,7 @@ def handle_machine_filter(machine_clicks, clear_clicks, selected_platform):
     triggered_id = ctx.triggered[0]['prop_id']
     triggered_value = ctx.triggered[0]['value']
 
-    # If platform changed, clear the machine filter
+    # If platform selection changed, clear the machine filter
     if 'selected-platform' in triggered_id:
         return None
 
@@ -275,10 +290,12 @@ def handle_machine_filter(machine_clicks, clear_clicks, selected_platform):
     Output('selected-platform', 'data'),
     Input({'type': 'platform-card', 'index': dash.ALL}, 'n_clicks'),
     Input('clear-filter-btn', 'n_clicks'),
+    Input({'type': 'remove-filter-btn', 'index': dash.ALL}, 'n_clicks'),
+    dash.State('selected-platform', 'data'),
     prevent_initial_call=True
 )
-def handle_card_click(card_clicks, clear_clicks):
-    """Handle platform card clicks and clear filter button."""
+def handle_card_click(card_clicks, clear_clicks, remove_clicks, current_selection):
+    """Handle platform card clicks, clear filter button, and individual filter removal."""
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update
@@ -286,11 +303,26 @@ def handle_card_click(card_clicks, clear_clicks):
     triggered_id = ctx.triggered[0]['prop_id']
     triggered_value = ctx.triggered[0]['value']
 
-    # Handle clear button
-    if 'clear-filter-btn' in triggered_id:
-        return None
+    # Ensure current_selection is a list
+    if current_selection is None:
+        current_selection = []
 
-    # Handle card clicks - only respond to actual clicks (value > 0)
+    # Handle clear all button
+    if 'clear-filter-btn' in triggered_id:
+        return []
+
+    # Handle individual filter removal
+    if 'remove-filter-btn' in triggered_id:
+        if not triggered_value or triggered_value == 0:
+            return dash.no_update
+        import json
+        prop_id = triggered_id.rsplit('.', 1)[0]
+        component_id = json.loads(prop_id)
+        platform_to_remove = component_id['index']
+        new_selection = [p for p in current_selection if p != platform_to_remove]
+        return new_selection
+
+    # Handle card clicks - toggle platform in/out of list
     if 'platform-card' in triggered_id:
         if not triggered_value or triggered_value == 0:
             return dash.no_update
@@ -298,7 +330,15 @@ def handle_card_click(card_clicks, clear_clicks):
         # Extract the platform id from the triggered component
         prop_id = triggered_id.rsplit('.', 1)[0]
         component_id = json.loads(prop_id)
-        return component_id['index']
+        clicked_platform = component_id['index']
+
+        # Toggle: if already selected, remove it; otherwise add it
+        if clicked_platform in current_selection:
+            new_selection = [p for p in current_selection if p != clicked_platform]
+        else:
+            new_selection = current_selection + [clicked_platform]
+
+        return new_selection
 
     return dash.no_update
 
@@ -320,24 +360,57 @@ def toggle_sort_direction(n_clicks):
 @callback(
     Output('ticket-section-title', 'children'),
     Output('clear-filter-btn', 'style'),
+    Output('active-filters-container', 'children'),
     Output('ticket-table', 'children'),
     Input('selected-platform', 'data'),
     Input('ticket-search-input', 'value'),
     Input('ticket-sort-field', 'value'),
     Input('sort-direction', 'data')
 )
-def update_ticket_section(selected_platform_id, search_text, sort_field, is_ascending):
-    """Update ticket section based on selected platform, search, and sort options."""
+def update_ticket_section(selected_platforms, search_text, sort_field, is_ascending):
+    """Update ticket section based on selected platforms, search, and sort options."""
     platforms = get_platforms()
     tickets = get_tickets()
 
-    # Filter by platform
-    if selected_platform_id:
-        platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
-        platform_name = platform['name'] if platform else 'Unknown'
-        title = f"{platform_name} - Open Tickets"
+    # Ensure selected_platforms is a list
+    if selected_platforms is None:
+        selected_platforms = []
+
+    # Create active filter badges
+    filter_badges = []
+    if selected_platforms:
+        for platform_id in selected_platforms:
+            platform = next((p for p in platforms if p['id'] == platform_id), None)
+            platform_name = platform['name'] if platform else platform_id
+            platform_status = platform['status'] if platform else 'healthy'
+            colors = STATUS_COLORS.get(platform_status, STATUS_COLORS['healthy'])
+
+            filter_badges.append(
+                html.Div([
+                    html.Span(
+                        platform_name,
+                        className="filter-badge-label",
+                        style={
+                            'backgroundColor': colors['light'],
+                            'color': colors['text'],
+                            'borderLeft': f"3px solid {colors['bg']}"
+                        }
+                    ),
+                    html.Button(
+                        html.I(className="fa fa-times"),
+                        id={'type': 'remove-filter-btn', 'index': platform_id},
+                        n_clicks=0,
+                        className="filter-badge-remove",
+                        title=f"Remove {platform_name} filter"
+                    )
+                ], className="active-filter-badge")
+            )
+
+    # Filter by platforms
+    if selected_platforms:
+        title = "Filtered Tickets"
         btn_style = {'display': 'inline-block'}
-        filtered_tickets = [t for t in tickets if t['platform'] == selected_platform_id]
+        filtered_tickets = [t for t in tickets if t['platform'] in selected_platforms]
     else:
         title = "All Open Tickets"
         btn_style = {'display': 'none'}
@@ -370,7 +443,7 @@ def update_ticket_section(selected_platform_id, search_text, sort_field, is_asce
                 reverse=not is_ascending
             )
 
-    return title, btn_style, create_ticket_table(filtered_tickets)
+    return title, btn_style, filter_badges, create_ticket_table(filtered_tickets)
 
 
 @callback(
