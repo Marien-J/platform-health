@@ -214,40 +214,47 @@ def update_performance_drilldown(selected_platforms, selected_machine):
         # No platform selected - hide the drill-down
         return None, {'display': 'none'}
 
-    # Show drilldown for the first selected platform only
-    selected_platform_id = selected_platforms[0]
-
-    # Get platform info for the header
+    # Get all platforms info
     platforms = get_platforms()
-    platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
-    platform_name = platform['name'] if platform else 'Unknown'
 
-    # Get performance data for the selected platform
-    perf_data = get_performance_data(selected_platform_id)
+    # Create a drilldown card for each selected platform (in order of selection)
+    drilldown_cards = []
+    for selected_platform_id in selected_platforms:
+        platform = next((p for p in platforms if p['id'] == selected_platform_id), None)
+        platform_name = platform['name'] if platform else 'Unknown'
 
-    if not perf_data:
-        return html.Div("No performance data available"), {'display': 'block'}
+        # Get performance data for this platform
+        perf_data = get_performance_data(selected_platform_id)
 
-    # Create the drill-down card
-    drilldown_content = dbc.Card([
-        dbc.CardHeader([
-            html.Div([
-                html.H5([
-                    html.I(className="fa fa-chart-line me-2"),
-                    f"{platform_name} - System Performance"
-                ], className="mb-0"),
-                html.Small(
-                    "Last 24 hours • 5-minute intervals",
-                    className="text-muted ms-2"
-                )
-            ], className="d-flex align-items-center")
-        ]),
-        dbc.CardBody([
-            create_performance_drilldown(selected_platform_id, perf_data, selected_machine)
-        ])
-    ], className="performance-drilldown-card")
+        if not perf_data:
+            drilldown_cards.append(
+                html.Div(f"No performance data available for {platform_name}",
+                         className="text-muted p-3")
+            )
+            continue
 
-    return drilldown_content, {'display': 'block'}
+        # Create the drill-down card for this platform
+        drilldown_cards.append(
+            dbc.Card([
+                dbc.CardHeader([
+                    html.Div([
+                        html.H5([
+                            html.I(className="fa fa-chart-line me-2"),
+                            f"{platform_name} - System Performance"
+                        ], className="mb-0"),
+                        html.Small(
+                            "Last 24 hours • 5-minute intervals",
+                            className="text-muted ms-2"
+                        )
+                    ], className="d-flex align-items-center")
+                ]),
+                dbc.CardBody([
+                    create_performance_drilldown(selected_platform_id, perf_data, selected_machine)
+                ])
+            ], className="performance-drilldown-card mb-3")
+        )
+
+    return html.Div(drilldown_cards), {'display': 'block'}
 
 
 @callback(
