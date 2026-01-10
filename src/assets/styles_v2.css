@@ -594,25 +594,120 @@ body {
     gap: 12px;
 }
 
+/* Navy Modal Header Styling */
+.modal-header-navy {
+    background-color: var(--aldi-navy) !important;
+    border-bottom: none;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.modal-header-content {
+    display: flex;
+    align-items: center;
+}
+
+.modal-header-ticket-id {
+    font-size: 18px;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+
+.modal-status-badge {
+    display: inline-block;
+}
+
+.btn-close-modal-navy {
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.btn-close-modal-navy:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+/* Modal Title Section */
+.modal-title-section {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--aldi-beige);
+}
+
+.modal-ticket-title-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--header-color);
+    margin: 0;
+}
+
+/* ServiceNow Button - ALDI Light Blue */
+.modal-servicenow-btn {
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 6px;
+    background-color: var(--aldi-light-blue) !important;
+    border: none !important;
+    color: var(--aldi-navy) !important;
+}
+
+.modal-servicenow-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(85, 195, 240, 0.4);
+    background-color: #3AB5E8 !important;
+}
+
+/* Legacy button class for backwards compatibility */
 .btn-servicenow {
     font-weight: 600;
     padding: 8px 20px;
     border-radius: 6px;
-    background-color: var(--primary-button) !important;
-    border-color: var(--primary-button) !important;
+    background-color: var(--aldi-light-blue) !important;
+    border: none !important;
+    color: var(--aldi-navy) !important;
 }
 
 .btn-servicenow:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 95, 0.2);
-    background-color: var(--aldi-light-blue) !important;
-    border-color: var(--aldi-light-blue) !important;
+    box-shadow: 0 4px 6px -1px rgba(85, 195, 240, 0.4);
+    background-color: #3AB5E8 !important;
 }
 
 .btn-modal-close {
     font-weight: 500;
     padding: 8px 16px;
     border-radius: 6px;
+}
+
+/* Ticket Description Box */
+.ticket-description-box {
+    background-color: #F5F4F0;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--body-text);
+    line-height: 1.6;
+}
+
+/* Ticket Row Styling */
+.ticket-row {
+    cursor: pointer;
+}
+
+.ticket-row:hover {
+    background-color: var(--aldi-beige);
 }
 
 /* ========================================

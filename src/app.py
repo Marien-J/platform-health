@@ -487,8 +487,19 @@ def handle_ticket_click(row_clicks):
     return dash.no_update
 
 
+# Status badge colors for ticket status
+STATUS_BADGE_COLORS = {
+    'Open': {'bg': '#E8F5E6', 'text': '#2D6427'},
+    'In Progress': {'bg': '#FFF3E6', 'text': '#B35500'},
+    'Pending': {'bg': '#F5F4F0', 'text': '#393A34'}
+}
+
+
 @callback(
     Output('ticket-detail-modal', 'is_open'),
+    Output('modal-header-ticket-id', 'children'),
+    Output('modal-status-badge', 'children'),
+    Output('modal-status-badge', 'style'),
     Output('modal-ticket-title', 'children'),
     Output('modal-ticket-id', 'children'),
     Output('modal-ticket-id', 'href'),
@@ -496,7 +507,6 @@ def handle_ticket_click(row_clicks):
     Output('modal-platform-badge', 'style'),
     Output('modal-priority-badge', 'children'),
     Output('modal-priority-badge', 'style'),
-    Output('modal-age', 'children'),
     Output('modal-created-date', 'children'),
     Output('modal-owner', 'children'),
     Output('modal-last-updated', 'children'),
@@ -511,13 +521,13 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
     """Update modal content and visibility based on selected ticket."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
 
     triggered_id = ctx.triggered[0]['prop_id']
 
     # Handle close buttons
     if 'close-btn' in triggered_id:
-        return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
 
     # Handle ticket selection
     if ticket_data:
@@ -547,8 +557,24 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
             'color': priority_colors['text']
         }
 
+        # Status badge styling
+        ticket_status = ticket_data.get('status', 'Open')
+        status_colors = STATUS_BADGE_COLORS.get(ticket_status, STATUS_BADGE_COLORS['Open'])
+        status_badge_style = {
+            'backgroundColor': status_colors['bg'],
+            'color': status_colors['text'],
+            'padding': '4px 12px',
+            'borderRadius': '20px',
+            'fontSize': '12px',
+            'fontWeight': '600',
+            'marginLeft': '12px'
+        }
+
         return (
             True,  # is_open
+            ticket_id,  # modal-header-ticket-id
+            ticket_status,  # modal-status-badge children
+            status_badge_style,  # modal-status-badge style
             ticket_data['title'],  # modal-ticket-title
             ticket_id,  # modal-ticket-id children
             servicenow_url,  # modal-ticket-id href
@@ -556,7 +582,6 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
             platform_badge_style,  # modal-platform-badge style
             ticket_data['priority'],  # modal-priority-badge children
             priority_style,  # modal-priority-badge style
-            ticket_data['age'],  # modal-age
             ticket_data.get('created_date', 'N/A'),  # modal-created-date
             ticket_data['owner'],  # modal-owner
             ticket_data.get('last_updated', 'N/A'),  # modal-last-updated
@@ -564,7 +589,7 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
             servicenow_url  # modal-servicenow-btn href
         )
 
-    return (False, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
+    return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
 
 
 # Clientside callback for handling drag-drop card reordering
