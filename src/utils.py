@@ -3,7 +3,7 @@ Utility functions for Platform Health Dashboard.
 """
 
 
-def generate_servicenow_link(ticket_number: str, instance: str = "aldisued") -> str:
+def generate_servicenow_link(ticket_number: str, instance: str = "aldiprod") -> str:
     """
     Generate ServiceNow link based on ticket prefix.
 
