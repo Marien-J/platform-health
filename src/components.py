@@ -235,23 +235,32 @@ def get_platform_name(platform_id: str) -> str:
 
 
 def get_servicenow_url(ticket_id: str) -> str:
-    """Generate ServiceNow URL for a ticket."""
-    return f"https://company.service-now.com/nav_to.do?uri=incident.do?sys_id={ticket_id}"
+    """Generate ServiceNow URL for a ticket based on its prefix."""
+    from utils import generate_servicenow_link
+    return generate_servicenow_link(ticket_id)
 
 
 def create_ticket_detail_modal() -> dbc.Modal:
     """Create the ticket detail modal component."""
     return dbc.Modal([
         dbc.ModalHeader([
-            dbc.ModalTitle(id='modal-ticket-title'),
+            html.Div([
+                html.Span(id='modal-header-ticket-id', className="modal-header-ticket-id"),
+                html.Span(id='modal-status-badge', className="modal-status-badge")
+            ], className="modal-header-content"),
             html.Button(
                 html.I(className="fa fa-times"),
-                className="btn-close-modal",
+                className="btn-close-modal-navy",
                 id='modal-close-btn',
                 n_clicks=0
             )
-        ], close_button=False, className="modal-header-custom"),
+        ], close_button=False, className="modal-header-navy"),
         dbc.ModalBody([
+            # Title (bold)
+            html.Div([
+                html.H5(id='modal-ticket-title', className="modal-ticket-title-text")
+            ], className="modal-title-section"),
+
             # Ticket ID with ServiceNow link
             html.Div([
                 html.Span("Ticket ID: ", className="modal-label"),
@@ -275,21 +284,16 @@ def create_ticket_detail_modal() -> dbc.Modal:
                 html.Span(id='modal-priority-badge', className="priority-badge")
             ], className="modal-field"),
 
-            # Age / Created Date
-            html.Div([
-                html.Span("Age: ", className="modal-label"),
-                html.Span(id='modal-age')
-            ], className="modal-field"),
-
-            html.Div([
-                html.Span("Created: ", className="modal-label"),
-                html.Span(id='modal-created-date')
-            ], className="modal-field"),
-
             # Owner
             html.Div([
                 html.Span("Assigned To: ", className="modal-label"),
                 html.Span(id='modal-owner')
+            ], className="modal-field"),
+
+            # Created Date
+            html.Div([
+                html.Span("Created: ", className="modal-label"),
+                html.Span(id='modal-created-date')
             ], className="modal-field"),
 
             # Last Updated
@@ -302,7 +306,7 @@ def create_ticket_detail_modal() -> dbc.Modal:
             html.Hr(className="modal-divider"),
             html.Div([
                 html.H6("Description", className="modal-section-title"),
-                html.P(id='modal-description', className="modal-description")
+                html.Div(id='modal-description', className="ticket-description-box")
             ], className="modal-description-section")
         ]),
         dbc.ModalFooter([
@@ -312,7 +316,7 @@ def create_ticket_detail_modal() -> dbc.Modal:
                 href="#",
                 target="_blank",
                 color="primary",
-                className="btn-servicenow",
+                className="modal-servicenow-btn",
                 external_link=True
             ),
             dbc.Button(
