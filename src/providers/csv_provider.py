@@ -142,9 +142,7 @@ class CSVDataProvider(DataProvider):
                 tickets.append(ticket)
 
         if rows and not tickets:
-            logger.warning(
-                f"No valid tickets parsed from {len(rows)} rows in {self.tickets_file}"
-            )
+            logger.warning(f"No valid tickets parsed from {len(rows)} rows in {self.tickets_file}")
         elif tickets:
             logger.info(f"Loaded {len(tickets)} tickets from {self.tickets_file}")
 

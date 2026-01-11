@@ -58,16 +58,12 @@ def get_data_provider(force_new: bool = False) -> DataProvider:
         # For Azure Blob Storage, we can still use CSV provider with a
         # mounted blob container. The blob is mounted via FUSE or similar.
         # For direct blob access, implement AzureBlobProvider in the future.
-        logger.info(
-            "Azure Blob configured - using CSV provider with mounted storage"
-        )
+        logger.info("Azure Blob configured - using CSV provider with mounted storage")
         _provider_instance = CSVDataProvider()
 
     elif source_type == DataSourceType.DATABRICKS:
         # Future: Implement DatabricksProvider for direct connection
-        logger.warning(
-            "Databricks provider not yet implemented, falling back to CSV"
-        )
+        logger.warning("Databricks provider not yet implemented, falling back to CSV")
         _provider_instance = CSVDataProvider()
 
     else:

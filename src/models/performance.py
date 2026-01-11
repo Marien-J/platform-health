@@ -6,11 +6,12 @@ Defines models for time-series performance data, metrics, and statistics.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class OutlierSeverity(str, Enum):
     """Severity levels for outlier detection."""
+
     WARNING = "warning"
     CRITICAL = "critical"
 
@@ -25,6 +26,7 @@ class Outlier:
         value: The outlier value
         severity: How severe the outlier is
     """
+
     index: int
     value: float
     severity: OutlierSeverity
@@ -47,6 +49,7 @@ class MetricWithOutliers:
         values: List of metric values
         outliers: List of detected outliers
     """
+
     values: List[float] = field(default_factory=list)
     outliers: List[Outlier] = field(default_factory=list)
 
@@ -67,6 +70,7 @@ class HistoricalStats:
         average: Average value over the period
         peak: Maximum value over the period
     """
+
     average: float
     peak: float
 
@@ -90,6 +94,7 @@ class PipelineSummary:
         not_applicable: Number of not applicable pipelines
         total: Total number of pipelines
     """
+
     successful: int = 0
     delayed: int = 0
     failed: int = 0
@@ -100,7 +105,7 @@ class PipelineSummary:
         """Calculate total pipelines."""
         return self.successful + self.delayed + self.failed + self.not_applicable
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, int]:
         """Convert to dictionary."""
         return {
             "successful": self.successful,
@@ -123,6 +128,7 @@ class TicketHistory:
         current_count: Current open ticket count
         breached_count: Current breached ticket count
     """
+
     timestamps: List[str] = field(default_factory=list)
     open_tickets: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     overdue_tickets: MetricWithOutliers = field(default_factory=MetricWithOutliers)
@@ -147,6 +153,7 @@ class PerformanceData:
 
     This contains common fields shared across all platforms.
     """
+
     timestamps: List[str] = field(default_factory=list)
     users: MetricWithOutliers = field(default_factory=MetricWithOutliers)
 
@@ -170,6 +177,7 @@ class EdlapPerformanceData(PerformanceData):
         open_tickets: Open ticket count over time
         overdue_tickets: Overdue ticket count over time
     """
+
     total_pipelines: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     failed_pipelines: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     delayed_pipelines: MetricWithOutliers = field(default_factory=MetricWithOutliers)
@@ -179,13 +187,15 @@ class EdlapPerformanceData(PerformanceData):
     def to_dict(self) -> dict:
         """Convert to dictionary for Dash components."""
         base = super().to_dict()
-        base.update({
-            "total_pipelines": self.total_pipelines.to_dict(),
-            "failed_pipelines": self.failed_pipelines.to_dict(),
-            "delayed_pipelines": self.delayed_pipelines.to_dict(),
-            "open_tickets": self.open_tickets.to_dict(),
-            "overdue_tickets": self.overdue_tickets.to_dict(),
-        })
+        base.update(
+            {
+                "total_pipelines": self.total_pipelines.to_dict(),
+                "failed_pipelines": self.failed_pipelines.to_dict(),
+                "delayed_pipelines": self.delayed_pipelines.to_dict(),
+                "open_tickets": self.open_tickets.to_dict(),
+                "overdue_tickets": self.overdue_tickets.to_dict(),
+            }
+        )
         return base
 
 
@@ -200,6 +210,7 @@ class SapbwPerformanceData(PerformanceData):
         load_time_sec: Dashboard load time in seconds
         cpu_percent: CPU utilization percentage
     """
+
     memory_tb: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     memory_capacity: float = 24.0
     load_time_sec: MetricWithOutliers = field(default_factory=MetricWithOutliers)
@@ -208,12 +219,14 @@ class SapbwPerformanceData(PerformanceData):
     def to_dict(self) -> dict:
         """Convert to dictionary for Dash components."""
         base = super().to_dict()
-        base.update({
-            "memory_tb": self.memory_tb.to_dict(),
-            "memory_capacity": self.memory_capacity,
-            "load_time_sec": self.load_time_sec.to_dict(),
-            "cpu_percent": self.cpu_percent.to_dict(),
-        })
+        base.update(
+            {
+                "memory_tb": self.memory_tb.to_dict(),
+                "memory_capacity": self.memory_capacity,
+                "load_time_sec": self.load_time_sec.to_dict(),
+                "cpu_percent": self.cpu_percent.to_dict(),
+            }
+        )
         return base
 
 
@@ -224,6 +237,7 @@ class MachineData:
 
     Used for multi-machine platforms (Tableau, Alteryx).
     """
+
     users: List[float] = field(default_factory=list)
     memory_percent: List[float] = field(default_factory=list)
     cpu_percent: List[float] = field(default_factory=list)
@@ -240,6 +254,7 @@ class MachineData:
 @dataclass
 class MachineOutliers:
     """Outliers detected for a single machine."""
+
     memory: List[Outlier] = field(default_factory=list)
     cpu: List[Outlier] = field(default_factory=list)
 
@@ -258,6 +273,7 @@ class AggregatedMetrics:
 
     Used for multi-machine platform summaries.
     """
+
     users: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     memory_percent: MetricWithOutliers = field(default_factory=MetricWithOutliers)
     load_time_sec: MetricWithOutliers = field(default_factory=MetricWithOutliers)
@@ -284,6 +300,7 @@ class MultiMachinePerformanceData:
         machine_outliers: Outliers detected per machine
         aggregated: Aggregated metrics across all machines
     """
+
     timestamps: List[str] = field(default_factory=list)
     machines: Dict[str, MachineData] = field(default_factory=dict)
     machine_outliers: Dict[str, MachineOutliers] = field(default_factory=dict)

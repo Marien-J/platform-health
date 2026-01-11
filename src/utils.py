@@ -23,4 +23,5 @@ def generate_servicenow_link(ticket_number: str, instance: str = "aldiprod") -> 
     elif ticket_number.startswith("PRB"):
         return f"{base_url}/problem.do?sysparm_query=number={ticket_number}"
     else:
-        return f"{base_url}/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D{ticket_number}"
+        search_uri = "%2F$sn_global_search_results.do%3Fsysparm_search%3D"
+        return f"{base_url}/nav_to.do?uri={search_uri}{ticket_number}"
