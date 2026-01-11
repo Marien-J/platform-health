@@ -94,6 +94,42 @@ class Pipeline:
         """Check if pipeline completed successfully."""
         return self.status == PipelineStatus.SUCCESSFUL
 
+    @property
+    def shown_status(self) -> str:
+        """
+        Get the display status for the pipeline bar chart.
+
+        For EDLAP:
+        - If original_status is 'Failed' → 'Failed'
+        - If original_status is 'Succeeded' and delay_seconds > 0 → 'Delayed'
+        - Otherwise → 'Succeeded'
+
+        For SAP_BW:
+        - Use the pipeline_transformed_status (mapped to status)
+
+        Returns:
+            Status string: 'Succeeded', 'Delayed', or 'Failed'
+        """
+        if self.platform == PlatformId.EDLAP:
+            if self.original_status == 'Failed':
+                return 'Failed'
+            elif self.original_status == 'Succeeded' and self.delay_seconds > 0:
+                return 'Delayed'
+            else:
+                return 'Succeeded'
+        elif self.platform == PlatformId.SAPBW:
+            # Use transformed status (already parsed into self.status)
+            if self.status == PipelineStatus.FAILED:
+                return 'Failed'
+            elif self.status == PipelineStatus.DELAYED:
+                return 'Delayed'
+            elif self.status == PipelineStatus.NOT_APPLICABLE:
+                return 'Not Applicable'
+            else:
+                return 'Succeeded'
+        else:
+            return 'Succeeded'
+
     def to_dict(self) -> dict:
         """Convert to dictionary for data processing."""
         return {

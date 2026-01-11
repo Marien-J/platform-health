@@ -110,6 +110,10 @@ class DataProvider(ABC):
         """
         Get pipeline status summary for a platform.
 
+        Uses the shown_status property which applies platform-specific logic:
+        - EDLAP: Failed if original_status='Failed', Delayed if Succeeded with delay>0
+        - SAP_BW: Uses pipeline_transformed_status directly
+
         Args:
             platform_id: Platform ID to summarize
 
@@ -122,14 +126,12 @@ class DataProvider(ABC):
         if not platform_pipelines:
             return PipelineSummary()
 
+        # Use shown_status for counting (applies platform-specific logic)
         return PipelineSummary(
-            successful=sum(1 for p in platform_pipelines if p.is_successful),
-            delayed=sum(1 for p in platform_pipelines if p.is_delayed and not p.is_failed),
-            failed=sum(1 for p in platform_pipelines if p.is_failed),
-            not_applicable=sum(
-                1 for p in platform_pipelines
-                if p.status.value == "not_applicable"
-            ),
+            successful=sum(1 for p in platform_pipelines if p.shown_status == 'Succeeded'),
+            delayed=sum(1 for p in platform_pipelines if p.shown_status == 'Delayed'),
+            failed=sum(1 for p in platform_pipelines if p.shown_status == 'Failed'),
+            not_applicable=sum(1 for p in platform_pipelines if p.shown_status == 'Not Applicable'),
         )
 
     def get_bw_memory_stats(self) -> HistoricalStats:
