@@ -115,7 +115,7 @@ app.layout = dbc.Container(
                                         dbc.Input(
                                             id="ticket-search-input",
                                             type="text",
-                                            placeholder="Search by ticket ID, title, or owner...",
+                                            placeholder="Search by ticket ID, title, requested by, or assigned to...",
                                             className="ticket-search-input",
                                         )
                                     ],
@@ -131,7 +131,8 @@ app.layout = dbc.Container(
                                                 {"label": "Ticket ID", "value": "id"},
                                                 {"label": "Title", "value": "title"},
                                                 {"label": "Priority", "value": "priority"},
-                                                {"label": "Owner", "value": "owner"},
+                                                {"label": "Requested by", "value": "requested_by"},
+                                                {"label": "Assigned to", "value": "assigned_to"},
                                             ],
                                             value="id",
                                             className="sort-select",
@@ -486,7 +487,8 @@ def update_ticket_section(selected_platforms, search_text, sort_field, is_ascend
             for t in filtered_tickets
             if search_lower in t["id"].lower()
             or search_lower in t["title"].lower()
-            or search_lower in t["owner"].lower()
+            or search_lower in t.get("requested_by", "").lower()
+            or search_lower in t.get("assigned_to", "").lower()
         ]
 
     # Apply sorting
@@ -569,7 +571,8 @@ STATUS_BADGE_COLORS = {
     Output("modal-priority-badge", "children"),
     Output("modal-priority-badge", "style"),
     Output("modal-created-date", "children"),
-    Output("modal-owner", "children"),
+    Output("modal-requested-by", "children"),
+    Output("modal-assigned-to", "children"),
     Output("modal-last-updated", "children"),
     Output("modal-description", "children"),
     Output("modal-servicenow-btn", "href"),
@@ -582,13 +585,13 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
     """Update modal content and visibility based on selected ticket."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
+        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
 
     triggered_id = ctx.triggered[0]["prop_id"]
 
     # Handle close buttons
     if "close-btn" in triggered_id:
-        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
+        return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
 
     # Handle ticket selection
     if ticket_data:
@@ -644,13 +647,14 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
             ticket_data["priority"],  # modal-priority-badge children
             priority_style,  # modal-priority-badge style
             ticket_data.get("created_date", "N/A"),  # modal-created-date
-            ticket_data["owner"],  # modal-owner
+            ticket_data.get("requested_by", "Unavailable"),  # modal-requested-by
+            ticket_data.get("assigned_to", "Unavailable"),  # modal-assigned-to
             ticket_data.get("last_updated", "N/A"),  # modal-last-updated
             ticket_data.get("description", "No description available."),  # modal-description
             servicenow_url,  # modal-servicenow-btn href
         )
 
-    return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "#")
+    return (False, "", "", {}, "", "", "#", "", {}, "", {}, "", "", "", "", "", "#")
 
 
 # Clientside callback for handling drag-drop card reordering

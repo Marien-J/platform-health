@@ -56,6 +56,8 @@ class Ticket:
         priority: Ticket priority level
         status: Current ticket status
         owner: Assignment group or individual
+        requested_by: Person who requested/created the ticket
+        assigned_to: Person assigned to work on the ticket
         created_date: Date ticket was created
         last_updated: Timestamp of last update
         age: Human-readable age string (e.g., "5d")
@@ -72,6 +74,8 @@ class Ticket:
     priority: TicketPriority
     status: TicketStatus = TicketStatus.OPEN
     owner: str = "Unassigned"
+    requested_by: str = "Unavailable"
+    assigned_to: str = "Unavailable"
     created_date: str = ""
     last_updated: str = ""
     age: str = "0d"
@@ -117,6 +121,8 @@ class Ticket:
             "priority": self.priority.value,
             "status": self.status.value,
             "owner": self.owner,
+            "requested_by": self.requested_by,
+            "assigned_to": self.assigned_to,
             "created_date": self.created_date,
             "last_updated": self.last_updated,
             "age": self.age,
@@ -195,6 +201,8 @@ class Ticket:
                 priority=priority,
                 status=status,
                 owner=row.get("service_task_assignment_group_desc", "Unassigned"),
+                requested_by=row.get("requested_by", "Unavailable"),
+                assigned_to=row.get("assigned_to", "Unavailable"),
                 created_date=created_date,
                 last_updated=last_updated,
                 age=age_str,
