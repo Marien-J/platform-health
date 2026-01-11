@@ -759,6 +759,14 @@ body {
     grid-template-columns: repeat(4, 1fr);
 }
 
+.drilldown-graphs-grid.five-cols {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.drilldown-graphs-grid.six-cols {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 .drilldown-graph-container {
     background-color: var(--card-background);
     border: 1px solid var(--aldi-beige);
@@ -965,6 +973,14 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .drilldown-graphs-grid.five-cols {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .drilldown-graphs-grid.six-cols {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
     .drilldown-graph-container {
         height: 300px;
         min-height: 300px;
@@ -981,7 +997,9 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .drilldown-graphs-grid.four-cols {
+    .drilldown-graphs-grid.four-cols,
+    .drilldown-graphs-grid.five-cols,
+    .drilldown-graphs-grid.six-cols {
         grid-template-columns: repeat(2, 1fr);
     }
 
@@ -1044,7 +1062,9 @@ body {
 
     /* Drill-down responsive */
     .drilldown-graphs-grid,
-    .drilldown-graphs-grid.four-cols {
+    .drilldown-graphs-grid.four-cols,
+    .drilldown-graphs-grid.five-cols,
+    .drilldown-graphs-grid.six-cols {
         grid-template-columns: 1fr;
     }
 

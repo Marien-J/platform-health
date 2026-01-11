@@ -7,29 +7,221 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import random
 import math
+import os
+import csv
+from collections import defaultdict
+
+# Path to sample data directory
+SAMPLE_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sample_data')
+
+
+def _load_tickets_from_csv() -> List[Dict[str, Any]]:
+    """Load tickets from the sample_data/tickets.csv file."""
+    tickets = []
+    csv_path = os.path.join(SAMPLE_DATA_DIR, 'tickets.csv')
+
+    if not os.path.exists(csv_path):
+        return []
+
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Map platform_id to our internal platform ids
+            platform_map = {
+                'EDLAP': 'edlap',
+                'SAP_BW': 'sapbw',
+                'Tableau': 'tableau',
+                'Alteryx': 'alteryx'
+            }
+
+            platform = platform_map.get(row['platform_id'], row['platform_id'].lower())
+
+            # Parse dates
+            created_ts = row.get('service_task_created_ts', '')
+            created_date = created_ts[:10] if created_ts else ''
+
+            # Calculate age in days
+            age_str = '0d'
+            if created_ts:
+                try:
+                    created_dt = datetime.fromisoformat(created_ts.replace('Z', '+00:00'))
+                    age_days = (datetime.now(created_dt.tzinfo) - created_dt).days
+                    age_str = f"{age_days}d"
+                except:
+                    age_str = '?d'
+
+            # Map service_task_type_code to priority (heuristic)
+            task_type = row.get('service_task_type_code', 'REQ')
+            priority_map = {'INC': 'High', 'PRB': 'Medium', 'REQ': 'Low'}
+            priority = priority_map.get(task_type, 'Low')
+
+            # Determine if breached affects priority
+            if row.get('is_breached', 'false').lower() == 'true':
+                priority = 'High'
+
+            # Build ticket object
+            ticket = {
+                'id': row.get('service_task_id', ''),
+                'platform': platform,
+                'title': row.get('service_task_desc', '')[:80] + ('...' if len(row.get('service_task_desc', '')) > 80 else ''),
+                'priority': priority,
+                'age': age_str,
+                'created_date': created_date,
+                'owner': row.get('service_task_assignment_group_desc', 'Unassigned'),
+                'description': row.get('service_task_desc', ''),
+                'last_updated': row.get('snapshot_ts', '')[:16].replace('T', ' ') if row.get('snapshot_ts') else '',
+                'status': row.get('service_task_state_desc', 'Open'),
+                'is_active': row.get('is_active', 'true').lower() == 'true',
+                'is_breached': row.get('is_breached', 'false').lower() == 'true',
+                'country': row.get('country', 'Unknown'),
+                'service': row.get('service_task_service', '')
+            }
+            tickets.append(ticket)
+
+    return tickets
+
+
+def _load_pipelines_from_csv() -> List[Dict[str, Any]]:
+    """Load pipeline data from sample_data/pipelines.csv."""
+    pipelines = []
+    csv_path = os.path.join(SAMPLE_DATA_DIR, 'pipelines.csv')
+
+    if not os.path.exists(csv_path):
+        return []
+
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Map platform_id
+            platform_map = {
+                'EDLAP': 'edlap',
+                'SAP_BW': 'sapbw'
+            }
+            platform = platform_map.get(row.get('platform_id', ''), row.get('platform_id', '').lower())
+
+            # Parse delay time
+            delay_qty = row.get('pipeline_delay_time_qty', '')
+            try:
+                delay_seconds = float(delay_qty) if delay_qty and delay_qty != 'null' else 0
+            except:
+                delay_seconds = 0
+
+            pipeline = {
+                'platform': platform,
+                'pipeline_id': row.get('pipeline_id', ''),
+                'snapshot_ts': row.get('snapshot_ts', ''),
+                'end_ts': row.get('pipeline_end_ts', ''),
+                'expected_end_ts': row.get('pipeline_expected_end_ts', ''),
+                'delay_seconds': delay_seconds,
+                'original_status': row.get('pipeline_original_status', ''),
+                'status': row.get('pipeline_transformed_status', '')
+            }
+            pipelines.append(pipeline)
+
+    return pipelines
+
+
+def _load_bw_performance_from_csv() -> List[Dict[str, Any]]:
+    """Load SAP B/W system performance data from sample_data/bw_system_performance.csv."""
+    records = []
+    csv_path = os.path.join(SAMPLE_DATA_DIR, 'bw_system_performance.csv')
+
+    if not os.path.exists(csv_path):
+        return []
+
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                record = {
+                    'snapshot_ts': row.get('snapshot_ts', ''),
+                    'storage_usage_tb': float(row.get('storage_usage_tb', 0)),
+                    'storage_capacity_tb': float(row.get('storage_capacity_tb', 0)),
+                    'memory_usage_tb': float(row.get('memory_usage_tb', 0)),
+                    'memory_capacity_tb': float(row.get('memory_capacity_tb', 0)),
+                    'ymd': row.get('ymd', '')
+                }
+                records.append(record)
+            except:
+                continue
+
+    return records
+
+
+def get_ticket_counts_by_platform() -> Dict[str, int]:
+    """Get count of active tickets per platform from CSV data."""
+    tickets = _load_tickets_from_csv()
+    counts = defaultdict(int)
+
+    for ticket in tickets:
+        if ticket.get('is_active', True):
+            counts[ticket['platform']] += 1
+
+    return dict(counts)
 
 
 def get_platforms() -> List[Dict[str, Any]]:
     """
     Get platform health data.
-    
-    In production, this would fetch from:
-    - EDLAP: Databricks API / monitoring
-    - SAP B/W: SAP monitoring endpoints
-    - Tableau: Tableau Server API
-    - Alteryx: Alteryx Server API
+
+    Uses real data from CSV files where available:
+    - Ticket counts from tickets.csv
+    - SAP B/W memory/storage from bw_system_performance.csv
+    - Pipeline data from pipelines.csv
     """
+    # Get real ticket counts
+    ticket_counts = get_ticket_counts_by_platform()
+
+    # Get real SAP B/W performance data (latest record)
+    bw_records = _load_bw_performance_from_csv()
+    if bw_records:
+        latest_bw = bw_records[-1]
+        bw_memory = latest_bw['memory_usage_tb']
+        bw_storage = latest_bw['storage_usage_tb']
+        bw_memory_capacity = latest_bw['memory_capacity_tb']
+    else:
+        bw_memory = 18.2
+        bw_storage = 54.7
+        bw_memory_capacity = 24.0
+
+    # Get real pipeline data
+    pipeline_summary = get_pipeline_summary('edlap')
+    edlap_failures = pipeline_summary.get('failed', 2)
+    edlap_delays = pipeline_summary.get('delayed', 8)
+
+    # Determine SAP B/W status based on memory usage
+    if bw_memory >= 22:
+        bw_status = 'critical'
+        bw_status_label = 'Critical'
+    elif bw_memory >= 20:
+        bw_status = 'attention'
+        bw_status_label = 'Attention'
+    else:
+        bw_status = 'healthy'
+        bw_status_label = 'Healthy'
+
+    # Determine EDLAP status based on pipeline failures
+    if edlap_failures >= 10:
+        edlap_status = 'critical'
+        edlap_status_label = 'Critical'
+    elif edlap_failures >= 5:
+        edlap_status = 'attention'
+        edlap_status_label = 'Attention'
+    else:
+        edlap_status = 'healthy'
+        edlap_status_label = 'Healthy'
+
     return [
         {
             'id': 'edlap',
             'name': 'EDLAP',
             'subtitle': 'Enterprise Data Lake',
-            'status': 'healthy',
-            'status_label': 'Healthy',
+            'status': edlap_status,
+            'status_label': edlap_status_label,
             'metrics': {
-                'primary': {'label': 'Pipeline Failures', 'value': '2', 'threshold': '< 5'},
-                'secondary': {'label': 'Data Delays', 'value': '8', 'threshold': '< 15'},
-                'tertiary': {'label': 'Open Tickets', 'value': '12'}
+                'primary': {'label': 'Pipeline Failures', 'value': str(edlap_failures), 'threshold': '< 5'},
+                'secondary': {'label': 'Data Delays', 'value': str(edlap_delays), 'threshold': '< 15'},
+                'tertiary': {'label': 'Open Tickets', 'value': str(ticket_counts.get('edlap', 0))}
             },
             'trend': 'stable'
         },
@@ -37,27 +229,27 @@ def get_platforms() -> List[Dict[str, Any]]:
             'id': 'sapbw',
             'name': 'SAP B/W',
             'subtitle': 'Business Warehouse',
-            'status': 'attention',
-            'status_label': 'Attention',
+            'status': bw_status,
+            'status_label': bw_status_label,
             'metrics': {
-                'primary': {'label': 'Memory Usage', 'value': '18.2 TB', 'threshold': '< 20 TB'},
-                'secondary': {'label': 'Storage', 'value': '54.7 TB', 'threshold': '< 60 TB'},
-                'tertiary': {'label': 'Open Tickets', 'value': '34'}
+                'primary': {'label': 'Memory Usage', 'value': f'{bw_memory:.1f} TB', 'threshold': f'< {bw_memory_capacity:.0f} TB'},
+                'secondary': {'label': 'Storage', 'value': f'{bw_storage:.1f} TB', 'threshold': '< 60 TB'},
+                'tertiary': {'label': 'Open Tickets', 'value': str(ticket_counts.get('sapbw', 0))}
             },
-            'trend': 'rising'
+            'trend': 'rising' if bw_memory >= 20 else 'stable'
         },
         {
             'id': 'tableau',
             'name': 'Tableau',
             'subtitle': 'Analytics & Reporting',
-            'status': 'critical',
-            'status_label': 'Critical',
+            'status': 'attention' if ticket_counts.get('tableau', 0) > 15 else 'healthy',
+            'status_label': 'Attention' if ticket_counts.get('tableau', 0) > 15 else 'Healthy',
             'metrics': {
-                'primary': {'label': 'Avg Load Time', 'value': '12.4s', 'threshold': '< 5s'},
-                'secondary': {'label': 'CPU Peak', 'value': '94%', 'threshold': '< 80%'},
-                'tertiary': {'label': 'Open Tickets', 'value': '47'}
+                'primary': {'label': 'Avg Load Time', 'value': '4.2s', 'threshold': '< 5s'},
+                'secondary': {'label': 'CPU Peak', 'value': '72%', 'threshold': '< 80%'},
+                'tertiary': {'label': 'Open Tickets', 'value': str(ticket_counts.get('tableau', 0))}
             },
-            'trend': 'degrading'
+            'trend': 'stable'
         },
         {
             'id': 'alteryx',
@@ -68,7 +260,7 @@ def get_platforms() -> List[Dict[str, Any]]:
             'metrics': {
                 'primary': {'label': 'Job Failures', 'value': '1', 'threshold': '< 5'},
                 'secondary': {'label': 'Queue Depth', 'value': '3', 'threshold': '< 10'},
-                'tertiary': {'label': 'Open Tickets', 'value': '8'}
+                'tertiary': {'label': 'Open Tickets', 'value': str(ticket_counts.get('alteryx', 0))}
             },
             'trend': 'stable'
         }
@@ -77,112 +269,24 @@ def get_platforms() -> List[Dict[str, Any]]:
 
 def get_tickets() -> List[Dict[str, Any]]:
     """
-    Get ticket data.
+    Get ticket data from CSV file.
 
-    In production, this would fetch from ServiceNow or your ticketing system.
+    Loads data from sample_data/tickets.csv with real ServiceNow ticket data.
     Ticket prefixes:
     - INC: Incident
     - RITM: Request Item
     - PRB: Problem
     """
-    return [
-        {
-            'id': 'INC001234',
-            'platform': 'tableau',
-            'title': 'Dashboard timeout on Sales Overview',
-            'priority': 'High',
-            'age': '3d',
-            'created_date': '2026-01-03',
-            'owner': 'M. Schmidt',
-            'description': 'The Sales Overview dashboard is timing out after approximately 30 seconds when users attempt to load it. This affects the entire sales team during their morning standup meetings. Initial investigation suggests the issue may be related to a recent data source change.',
-            'last_updated': '2026-01-06 09:45',
-            'status': 'In Progress'
-        },
-        {
-            'id': 'RITM001198',
-            'platform': 'tableau',
-            'title': 'Request for new Executive KPI dashboard',
-            'priority': 'High',
-            'age': '5d',
-            'created_date': '2026-01-01',
-            'owner': 'K. Weber',
-            'description': 'Executive leadership has requested a new KPI dashboard with real-time sales metrics. The dashboard should include regional breakdowns and comparison to targets. Design phase is complete, awaiting data source configuration.',
-            'last_updated': '2026-01-05 14:30',
-            'status': 'Open'
-        },
-        {
-            'id': 'PRB001201',
-            'platform': 'sapbw',
-            'title': 'Recurring memory spike during month-end',
-            'priority': 'Medium',
-            'age': '2d',
-            'created_date': '2026-01-04',
-            'owner': 'SAP Team',
-            'description': 'Memory usage spikes to 22TB during month-end processing, approaching the 24TB limit. This causes query slowdowns and potential system instability. Root cause analysis indicates inefficient aggregation queries that need optimization.',
-            'last_updated': '2026-01-06 08:15',
-            'status': 'In Progress'
-        },
-        {
-            'id': 'INC001189',
-            'platform': 'edlap',
-            'title': 'Pipeline delay - Finance feed',
-            'priority': 'Low',
-            'age': '4d',
-            'created_date': '2026-01-02',
-            'owner': 'Data Ops',
-            'description': 'The Finance department data feed is arriving 2-3 hours later than expected. This is due to upstream system maintenance windows being extended. Working with Finance IT to resolve the scheduling conflict.',
-            'last_updated': '2026-01-04 16:20',
-            'status': 'Pending'
-        },
-        {
-            'id': 'INC001156',
-            'platform': 'tableau',
-            'title': 'Report export failing for GBIE',
-            'priority': 'Medium',
-            'age': '7d',
-            'created_date': '2025-12-30',
-            'owner': 'K. Weber',
-            'description': 'GBIE team reports that PDF exports of their regional sales reports are failing with a timeout error. The exports work fine for smaller datasets but fail when the full region is selected. May need to implement pagination or optimize the underlying query.',
-            'last_updated': '2026-01-03 11:00',
-            'status': 'Open'
-        },
-        {
-            'id': 'PRB001145',
-            'platform': 'sapbw',
-            'title': 'BW query performance degradation pattern',
-            'priority': 'High',
-            'age': '6d',
-            'created_date': '2025-12-31',
-            'owner': 'SAP Team',
-            'description': 'Several key BW queries have experienced 3x slower performance over the past week. This affects multiple downstream reports and analytics. Root cause analysis points to index fragmentation and statistics that need updating.',
-            'last_updated': '2026-01-05 17:45',
-            'status': 'In Progress'
-        },
-        {
-            'id': 'RITM001132',
-            'platform': 'alteryx',
-            'title': 'Request for automated HR extract workflow',
-            'priority': 'Low',
-            'age': '1d',
-            'created_date': '2026-01-05',
-            'owner': 'Data Ops',
-            'description': 'HR department has requested an automated daily extract workflow to replace the current manual process. Requirements gathering is complete, workflow design is in progress. Expected delivery within 2 weeks.',
-            'last_updated': '2026-01-06 07:30',
-            'status': 'Open'
-        },
-        {
-            'id': 'INC001128',
-            'platform': 'edlap',
-            'title': 'Data quality issue in customer dimension',
-            'priority': 'Medium',
-            'age': '8d',
-            'created_date': '2025-12-29',
-            'owner': 'Data Ops',
-            'description': 'Duplicate customer records identified in the customer dimension table affecting approximately 2% of records. This is causing discrepancies in customer count reports. Data stewardship team is working on a deduplication strategy.',
-            'last_updated': '2026-01-02 13:15',
-            'status': 'Pending'
-        }
-    ]
+    tickets = _load_tickets_from_csv()
+
+    # Filter to only active tickets and return
+    active_tickets = [t for t in tickets if t.get('is_active', True)]
+
+    # Sort by priority (High first) then by age (oldest first)
+    priority_order = {'High': 0, 'Medium': 1, 'Low': 2}
+    active_tickets.sort(key=lambda t: (priority_order.get(t['priority'], 2), -int(t['age'].replace('d', '').replace('?', '0'))))
+
+    return active_tickets
 
 
 def get_summary_counts() -> Dict[str, int]:
@@ -384,51 +488,105 @@ def get_edlap_performance_data(hours: int = 24) -> Dict[str, Any]:
 
 def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
     """
-    Generate SAP B/W performance data.
+    Get SAP B/W performance data.
+    Uses real memory data from bw_system_performance.csv where available.
     Metrics: users, memory (TB), avg dashboard load time, CPU
     """
-    timestamps = _generate_base_pattern(hours)
-    random.seed(43)
+    # Load real BW performance data
+    bw_records = _load_bw_performance_from_csv()
 
-    # Users - business hours pattern, max around 100
-    users = []
-    for ts in timestamps:
-        base = 45
-        val = _add_daily_pattern(base, ts.hour, amplitude=0.8)
-        val = _add_noise(val, 0.12)
-        users.append(max(3, round(val)))
+    if bw_records:
+        # Use real data - take the most recent records
+        # The CSV has hourly snapshots, we'll use the last N records
+        recent_records = bw_records[-min(len(bw_records), 289):]  # Up to ~12 days of hourly data
 
-    # Memory TB - high baseline (machine has 24TB), stays 16-22 typically
-    memory_tb = []
-    for ts in timestamps:
-        base = 18.2
-        # Higher during business hours due to caching
-        val = _add_daily_pattern(base, ts.hour, amplitude=0.15)
-        val = _add_noise(val, 0.03)
-        memory_tb.append(round(val, 2))
-    memory_tb, _ = _inject_outliers(memory_tb, 0.02, 1.15)  # Occasional spikes to ~21TB
+        timestamps = []
+        memory_tb = []
 
-    # Dashboard load time - varies with load
-    load_times = []
-    for i, ts in enumerate(timestamps):
-        base = 4.5
-        # Correlate with users
-        user_factor = users[i] / 50
-        val = base * (1 + 0.3 * user_factor)
-        val = _add_noise(val, 0.2)
-        load_times.append(round(val, 2))
-    load_times, _ = _inject_outliers(load_times, 0.03, 2.0)
+        for record in recent_records:
+            ts_str = record.get('snapshot_ts', '')
+            if ts_str:
+                try:
+                    ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                    timestamps.append(ts.strftime('%Y-%m-%d %H:%M'))
+                except:
+                    continue
+                memory_tb.append(record['memory_usage_tb'])
 
-    # CPU percent - correlates with memory and users
-    cpu_percent = []
-    for i, ts in enumerate(timestamps):
-        base = 35
-        user_factor = users[i] / 50
-        memory_factor = memory_tb[i] / 18
-        val = base * (1 + 0.4 * user_factor + 0.3 * memory_factor)
-        val = _add_noise(val, 0.15)
-        cpu_percent.append(min(100, round(val, 1)))
-    cpu_percent, _ = _inject_outliers(cpu_percent, 0.02, 1.4)
+        # Get memory capacity from last record
+        memory_capacity = recent_records[-1]['memory_capacity_tb'] if recent_records else 23.25
+
+        # Generate simulated users and other metrics based on timestamps
+        random.seed(43)
+        users = []
+        for i, ts_str in enumerate(timestamps):
+            try:
+                hour = int(ts_str.split(' ')[1].split(':')[0])
+            except:
+                hour = 12
+            base = 45
+            val = _add_daily_pattern(base, hour, amplitude=0.8)
+            val = _add_noise(val, 0.12)
+            users.append(max(3, round(val)))
+
+        # Dashboard load time - correlate with memory usage
+        load_times = []
+        for i in range(len(timestamps)):
+            base = 4.5
+            memory_factor = memory_tb[i] / 19 if i < len(memory_tb) else 1.0
+            val = base * (0.8 + 0.4 * memory_factor)
+            val = _add_noise(val, 0.2)
+            load_times.append(round(val, 2))
+
+        # CPU percent - correlate with memory
+        cpu_percent = []
+        for i in range(len(timestamps)):
+            base = 35
+            memory_factor = memory_tb[i] / 19 if i < len(memory_tb) else 1.0
+            val = base * (0.7 + 0.5 * memory_factor)
+            val = _add_noise(val, 0.15)
+            cpu_percent.append(min(100, round(val, 1)))
+
+    else:
+        # Fallback to generated data
+        generated_timestamps = _generate_base_pattern(hours)
+        timestamps = [ts.strftime('%Y-%m-%d %H:%M') for ts in generated_timestamps]
+        random.seed(43)
+        memory_capacity = 24.0
+
+        users = []
+        for ts in generated_timestamps:
+            base = 45
+            val = _add_daily_pattern(base, ts.hour, amplitude=0.8)
+            val = _add_noise(val, 0.12)
+            users.append(max(3, round(val)))
+
+        memory_tb = []
+        for ts in generated_timestamps:
+            base = 18.2
+            val = _add_daily_pattern(base, ts.hour, amplitude=0.15)
+            val = _add_noise(val, 0.03)
+            memory_tb.append(round(val, 2))
+        memory_tb, _ = _inject_outliers(memory_tb, 0.02, 1.15)
+
+        load_times = []
+        for i, ts in enumerate(generated_timestamps):
+            base = 4.5
+            user_factor = users[i] / 50
+            val = base * (1 + 0.3 * user_factor)
+            val = _add_noise(val, 0.2)
+            load_times.append(round(val, 2))
+        load_times, _ = _inject_outliers(load_times, 0.03, 2.0)
+
+        cpu_percent = []
+        for i, ts in enumerate(generated_timestamps):
+            base = 35
+            user_factor = users[i] / 50
+            memory_factor = memory_tb[i] / 18
+            val = base * (1 + 0.4 * user_factor + 0.3 * memory_factor)
+            val = _add_noise(val, 0.15)
+            cpu_percent.append(min(100, round(val, 1)))
+        cpu_percent, _ = _inject_outliers(cpu_percent, 0.02, 1.4)
 
     # Detect outliers
     thresholds = OUTLIER_THRESHOLDS['sapbw']
@@ -438,9 +596,10 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
     cpu_outliers = detect_outliers([min(100, v) for v in cpu_percent], thresholds['cpu_percent'])
 
     return {
-        'timestamps': [ts.strftime('%Y-%m-%d %H:%M') for ts in timestamps],
+        'timestamps': timestamps,
         'users': {'values': users, 'outliers': users_outliers},
-        'memory_tb': {'values': [min(24, v) for v in memory_tb], 'outliers': memory_outliers},
+        'memory_tb': {'values': [min(memory_capacity, v) for v in memory_tb], 'outliers': memory_outliers},
+        'memory_capacity': memory_capacity,
         'load_time_sec': {'values': load_times, 'outliers': load_outliers},
         'cpu_percent': {'values': [min(100, v) for v in cpu_percent], 'outliers': cpu_outliers}
     }
@@ -677,17 +836,138 @@ def get_historical_stats(values: List[float], period: str = 'month') -> Dict[str
     }
 
 
-def get_pipeline_summary() -> Dict[str, int]:
-    """Get current pipeline counts for EDLAP bar chart."""
-    random.seed(42)
-    total = 245
-    failed = random.randint(1, 5)
-    delayed = random.randint(3, 10)
-    successful = total - failed - delayed
+def get_ticket_history(platform_id: str = None, days: int = 30) -> Dict[str, Any]:
+    """
+    Get ticket history data for line graphs.
+
+    Generates a simulated history of open tickets over time based on current ticket data.
+    In production, this would query historical snapshots from the ticketing system.
+
+    Args:
+        platform_id: Filter to specific platform ('edlap', 'sapbw', 'tableau', 'alteryx') or None for all
+        days: Number of days of history to generate
+
+    Returns:
+        Dict with timestamps and ticket counts (open and overdue/breached)
+    """
+    tickets = _load_tickets_from_csv()
+
+    # Filter to platform if specified
+    if platform_id:
+        tickets = [t for t in tickets if t['platform'] == platform_id]
+
+    # Get current count of active tickets
+    active_tickets = [t for t in tickets if t.get('is_active', True)]
+    current_count = len(active_tickets)
+
+    # Count breached tickets as "overdue"
+    breached_count = len([t for t in active_tickets if t.get('is_breached', False)])
+
+    # Generate timestamps for the past N days (one point per day)
+    now = datetime.now()
+    timestamps = []
+    open_tickets = []
+    overdue_tickets = []
+
+    random.seed(hash(platform_id or 'all') % 2**32)
+
+    for i in range(days, -1, -1):
+        date = now - timedelta(days=i)
+        timestamps.append(date.strftime('%Y-%m-%d'))
+
+        # Simulate ticket count history with some variation
+        # Trend towards current value
+        progress = (days - i) / days
+        base_count = int(current_count * 0.7 + current_count * 0.6 * progress)
+
+        # Add daily variation
+        daily_variation = random.randint(-3, 4)
+        count = max(0, base_count + daily_variation)
+
+        # Weekday vs weekend pattern (fewer tickets opened on weekends)
+        if date.weekday() >= 5:
+            count = int(count * 0.85)
+
+        open_tickets.append(count)
+
+        # Overdue/breached count is typically 15-35% of open tickets
+        overdue_base = int(count * (0.15 + 0.2 * random.random()))
+        overdue_variation = random.randint(-1, 1)
+        overdue = max(0, min(count, overdue_base + overdue_variation))
+
+        # Make sure the last value matches actual data
+        if i == 0:
+            overdue = breached_count
+
+        overdue_tickets.append(overdue)
+
+    # Make sure the last value matches actual current count
+    open_tickets[-1] = current_count
+
+    return {
+        'timestamps': timestamps,
+        'open_tickets': {'values': open_tickets, 'outliers': []},
+        'overdue_tickets': {'values': overdue_tickets, 'outliers': []},
+        'current_count': current_count,
+        'breached_count': breached_count
+    }
+
+
+def get_pipeline_summary(platform_id: str = 'edlap') -> Dict[str, int]:
+    """
+    Get current pipeline counts for platform bar chart.
+
+    Args:
+        platform_id: 'edlap' or 'sapbw'
+
+    Returns pipeline status counts from real CSV data.
+    """
+    pipelines = _load_pipelines_from_csv()
+
+    # Filter to requested platform
+    platform_pipelines = [p for p in pipelines if p['platform'] == platform_id]
+
+    if not platform_pipelines:
+        # Fallback to generated data
+        random.seed(42 if platform_id == 'edlap' else 43)
+        total = 245 if platform_id == 'edlap' else 150
+        failed = random.randint(1, 5)
+        delayed = random.randint(3, 10)
+        successful = total - failed - delayed
+        return {
+            'successful': successful,
+            'delayed': delayed,
+            'failed': failed,
+            'total': total
+        }
+
+    # Count by status
+    successful = 0
+    delayed = 0
+    failed = 0
+    not_applicable = 0
+
+    for p in platform_pipelines:
+        status = p.get('status', '').lower()
+        orig_status = p.get('original_status', '').lower()
+
+        if 'failed' in status or orig_status == 'r' or 'failed' in orig_status:
+            failed += 1
+        elif 'delayed' in status:
+            delayed += 1
+        elif 'not applicable' in status:
+            not_applicable += 1
+        elif 'within expected' in status or orig_status == 'g' or 'succeeded' in orig_status:
+            successful += 1
+        else:
+            successful += 1  # Default to successful if status unclear
+
+    total = successful + delayed + failed + not_applicable
 
     return {
         'successful': successful,
         'delayed': delayed,
         'failed': failed,
+        'not_applicable': not_applicable,
         'total': total
     }
