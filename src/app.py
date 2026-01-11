@@ -131,6 +131,7 @@ app.layout = dbc.Container(
                                                 {"label": "Ticket ID", "value": "id"},
                                                 {"label": "Title", "value": "title"},
                                                 {"label": "Priority", "value": "priority"},
+                                                {"label": "Age", "value": "age"},
                                                 {"label": "Requested by", "value": "requested_by"},
                                                 {"label": "Assigned to", "value": "assigned_to"},
                                             ],
