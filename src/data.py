@@ -162,14 +162,17 @@ def get_platforms() -> List[Dict[str, Any]]:
         bw_memory_capacity = 24.0
 
     # Get real pipeline data
-    pipeline_summary = get_pipeline_summary("edlap")
-    edlap_failures = pipeline_summary.get("failed", 2)
-    edlap_delays = pipeline_summary.get("delayed", 8)
+    edlap_pipeline_summary = get_pipeline_summary("edlap")
+    edlap_failures = edlap_pipeline_summary.get("failed", 2)
+    edlap_delays = edlap_pipeline_summary.get("delayed", 8)
+
+    sapbw_pipeline_summary = get_pipeline_summary("sapbw")
+    sapbw_failures = sapbw_pipeline_summary.get("failed", 0)
 
     # Build platform objects with determined status
     platforms = [
         _build_edlap_platform(ticket_counts, edlap_failures, edlap_delays),
-        _build_sapbw_platform(ticket_counts, bw_memory, bw_storage, bw_memory_capacity),
+        _build_sapbw_platform(ticket_counts, sapbw_failures, bw_memory, bw_memory_capacity),
         _build_tableau_platform(ticket_counts),
         _build_alteryx_platform(ticket_counts),
     ]
@@ -443,11 +446,12 @@ def _build_edlap_platform(ticket_counts: Dict[str, int], failures: int, delays: 
 
 def _build_sapbw_platform(
     ticket_counts: Dict[str, int],
+    failures: int,
     memory: float,
-    storage: float,
     memory_capacity: float,
 ) -> Platform:
     """Build SAP B/W platform object with current status."""
+    # Status based on memory usage thresholds
     if memory >= 22:
         status = PlatformStatus.CRITICAL
     elif memory >= 20:
@@ -464,12 +468,14 @@ def _build_sapbw_platform(
         status=status,
         metrics=PlatformMetrics(
             primary=PlatformMetric(
+                label="Pipeline Failures",
+                value=str(failures),
+                threshold="< 5",
+            ),
+            secondary=PlatformMetric(
                 label="Memory Usage",
                 value=f"{memory:.1f} TB",
                 threshold=f"< {memory_capacity:.0f} TB",
-            ),
-            secondary=PlatformMetric(
-                label="Storage", value=f"{storage:.1f} TB", threshold="< 60 TB"
             ),
             tertiary=PlatformMetric(label="Open Tickets", value=str(ticket_counts.get("sapbw", 0))),
         ),
@@ -498,14 +504,18 @@ def _build_tableau_platform(ticket_counts: Dict[str, int]) -> Platform:
 
 def _build_alteryx_platform(ticket_counts: Dict[str, int]) -> Platform:
     """Build Alteryx platform object with current status."""
+    # Simulated values for now - would come from real monitoring in production
+    avg_load_time = 3.8  # seconds
+    cpu_peak = 65  # percentage
+
     return Platform(
         id=PlatformId.ALTERYX,
         name="Alteryx",
         subtitle="Self-Service Analytics",
         status=PlatformStatus.HEALTHY,
         metrics=PlatformMetrics(
-            primary=PlatformMetric(label="Job Failures", value="1", threshold="< 5"),
-            secondary=PlatformMetric(label="Queue Depth", value="3", threshold="< 10"),
+            primary=PlatformMetric(label="Avg Load Time", value=f"{avg_load_time}s", threshold="< 5s"),
+            secondary=PlatformMetric(label="CPU Peak", value=f"{cpu_peak}%", threshold="< 80%"),
             tertiary=PlatformMetric(
                 label="Open Tickets", value=str(ticket_counts.get("alteryx", 0))
             ),
