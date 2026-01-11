@@ -226,7 +226,8 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
                 html.Th("Title"),
                 html.Th("Priority"),
                 html.Th("Age"),
-                html.Th("Owner"),
+                html.Th("Requested by"),
+                html.Th("Assigned to"),
             ]
         )
     )
@@ -252,7 +253,8 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
                         )
                     ),
                     html.Td(ticket["age"], className="text-muted"),
-                    html.Td(ticket["owner"]),
+                    html.Td(ticket.get("requested_by", "Unavailable")),
+                    html.Td(ticket.get("assigned_to", "Unavailable")),
                 ],
                 id={"type": "ticket-row", "index": ticket["id"]},
                 className="ticket-row-clickable",
@@ -347,11 +349,19 @@ def create_ticket_detail_modal() -> dbc.Modal:
                         ],
                         className="modal-field",
                     ),
-                    # Owner
+                    # Requested by
                     html.Div(
                         [
-                            html.Span("Assigned To: ", className="modal-label"),
-                            html.Span(id="modal-owner"),
+                            html.Span("Requested by: ", className="modal-label"),
+                            html.Span(id="modal-requested-by"),
+                        ],
+                        className="modal-field",
+                    ),
+                    # Assigned to
+                    html.Div(
+                        [
+                            html.Span("Assigned to: ", className="modal-label"),
+                            html.Span(id="modal-assigned-to"),
                         ],
                         className="modal-field",
                     ),
