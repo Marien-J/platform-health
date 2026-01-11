@@ -471,7 +471,7 @@ def _add_above_avg_markers(fig: go.Figure, timestamps: List[str], values: List[f
 
 def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
     """Create EDLAP-specific drill-down graphs."""
-    from data import get_historical_stats, get_pipeline_summary
+    from data import get_historical_stats, get_pipeline_summary, get_ticket_history
 
     timestamps = data['timestamps']
 
@@ -490,8 +490,8 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
     user_stats = get_historical_stats(users_data['values'], 'month')
     _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
 
-    # Graph 2: Pipelines - BAR CHART showing successful/delayed/failed
-    pipeline_summary = get_pipeline_summary()
+    # Graph 2: Pipelines - BAR CHART showing successful/delayed/failed (from real CSV data)
+    pipeline_summary = get_pipeline_summary('edlap')
     fig_pipelines = _create_base_figure('Pipeline Status (Current)')
     fig_pipelines.add_trace(go.Bar(
         x=['Successful', 'Delayed', 'Failed'],
@@ -507,10 +507,11 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         xaxis=dict(title='')
     )
 
-    # Graph 3: Tickets (open and overdue) - with avg/peak of last month
-    fig_tickets = _create_base_figure('Tickets')
+    # Graph 3: Open Tickets History (from real CSV data) - with avg/peak of last month
+    ticket_history = get_ticket_history('edlap', days=30)
+    fig_tickets = _create_base_figure('Open Tickets (30 days)')
     fig_tickets.add_trace(go.Scatter(
-        x=timestamps, y=data['open_tickets']['values'],
+        x=ticket_history['timestamps'], y=ticket_history['open_tickets']['values'],
         mode='lines',
         name='Open Tickets',
         line=dict(color=GRAPH_COLORS['info'], width=2),
@@ -518,13 +519,13 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
         fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
     fig_tickets.add_trace(go.Scatter(
-        x=timestamps, y=data['overdue_tickets']['values'],
+        x=ticket_history['timestamps'], y=ticket_history['overdue_tickets']['values'],
         mode='lines',
-        name='Overdue',
+        name='Breached',
         line=dict(color=GRAPH_COLORS['danger'], width=2)
     ))
     # Add avg/peak lines for open tickets instead of thresholds
-    ticket_stats = get_historical_stats(data['open_tickets']['values'], 'month')
+    ticket_stats = get_historical_stats(ticket_history['open_tickets']['values'], 'month')
     _add_avg_peak_lines(fig_tickets, ticket_stats['average'], ticket_stats['peak'], 'month')
 
     return html.Div([
@@ -542,9 +543,12 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
 
 def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     """Create SAP B/W-specific drill-down graphs."""
-    from data import get_historical_stats
+    from data import get_historical_stats, get_pipeline_summary, get_ticket_history
 
     timestamps = data['timestamps']
+
+    # Get memory capacity from data (real from CSV)
+    memory_capacity = data.get('memory_capacity', 23.25)
 
     # Graph 1: Active Users - with avg/peak of last month, no warning/critical
     fig_users = _create_base_figure('Active Users')
@@ -560,7 +564,7 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     user_stats = get_historical_stats(users_data['values'], 'month')
     _add_avg_peak_lines(fig_users, user_stats['average'], user_stats['peak'], 'month')
 
-    # Graph 2: Memory (TB) with 24TB max reference - keep thresholds (hardware limit)
+    # Graph 2: Memory (TB) with actual capacity reference - keep thresholds (hardware limit)
     fig_memory = _create_base_figure('Memory Usage (TB)')
     memory_data = data['memory_tb']
     fig_memory.add_trace(go.Scatter(
@@ -571,13 +575,50 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
         fill='tozeroy',
         fillcolor='rgba(85, 195, 240, 0.1)'  # ALDI Light Blue with opacity
     ))
-    fig_memory.add_hline(y=24, line_dash='solid', line_color='#393A34', line_width=1,  # ALDI Charcoal
-                         annotation_text='Max: 24TB', annotation_position='top left',
+    fig_memory.add_hline(y=memory_capacity, line_dash='solid', line_color='#393A34', line_width=1,
+                         annotation_text=f'Max: {memory_capacity:.1f}TB', annotation_position='top left',
                          annotation_font_size=9, annotation_bgcolor='rgba(255,255,255,0.8)')
-    _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, 24)
-    fig_memory.update_layout(yaxis=dict(range=[0, 26]))
+    _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, memory_capacity)
+    fig_memory.update_layout(yaxis=dict(range=[0, memory_capacity + 2]))
 
-    # Graph 3: Dashboard Load Time - with avg/peak of last week, orange when above avg
+    # Graph 3: Pipeline Status - BAR CHART (like EDLAP)
+    pipeline_summary = get_pipeline_summary('sapbw')
+    fig_pipelines = _create_base_figure('Pipeline Status (Current)')
+    fig_pipelines.add_trace(go.Bar(
+        x=['Successful', 'Delayed', 'Failed'],
+        y=[pipeline_summary['successful'], pipeline_summary['delayed'], pipeline_summary['failed']],
+        marker_color=[GRAPH_COLORS['success'], GRAPH_COLORS['warning'], GRAPH_COLORS['danger']],
+        text=[pipeline_summary['successful'], pipeline_summary['delayed'], pipeline_summary['failed']],
+        textposition='outside',
+        textfont=dict(size=14, color='#374151')
+    ))
+    fig_pipelines.update_layout(
+        showlegend=False,
+        yaxis=dict(title='Count', range=[0, max(pipeline_summary['successful'], 50) * 1.15]),
+        xaxis=dict(title='')
+    )
+
+    # Graph 4: Open Tickets History - line chart with avg/peak
+    ticket_history = get_ticket_history('sapbw', days=30)
+    fig_tickets = _create_base_figure('Open Tickets (30 days)')
+    fig_tickets.add_trace(go.Scatter(
+        x=ticket_history['timestamps'], y=ticket_history['open_tickets']['values'],
+        mode='lines',
+        name='Open Tickets',
+        line=dict(color=GRAPH_COLORS['info'], width=2),
+        fill='tozeroy',
+        fillcolor='rgba(85, 195, 240, 0.1)'
+    ))
+    fig_tickets.add_trace(go.Scatter(
+        x=ticket_history['timestamps'], y=ticket_history['overdue_tickets']['values'],
+        mode='lines',
+        name='Breached',
+        line=dict(color=GRAPH_COLORS['danger'], width=2)
+    ))
+    ticket_stats = get_historical_stats(ticket_history['open_tickets']['values'], 'month')
+    _add_avg_peak_lines(fig_tickets, ticket_stats['average'], ticket_stats['peak'], 'month')
+
+    # Graph 5: Dashboard Load Time - with avg/peak of last week, orange when above avg
     fig_load = _create_base_figure('Avg Dashboard Load Time (sec)')
     load_data = data['load_time_sec']
     fig_load.add_trace(go.Scatter(
@@ -592,7 +633,7 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     _add_avg_peak_lines(fig_load, load_stats['average'], load_stats['peak'], 'week')
     _add_above_avg_markers(fig_load, timestamps, load_data['values'], load_stats['average'])
 
-    # Graph 4: CPU Usage - with avg/peak of last week, orange when above avg
+    # Graph 6: CPU Usage - with avg/peak of last week, orange when above avg
     fig_cpu = _create_base_figure('CPU Utilization (%)')
     cpu_data = data['cpu_percent']
     fig_cpu.add_trace(go.Scatter(
@@ -616,19 +657,25 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
             dcc.Graph(figure=fig_memory, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
+            dcc.Graph(figure=fig_pipelines, config={'displayModeBar': False}, className='drilldown-graph')
+        ], className='drilldown-graph-container'),
+        html.Div([
+            dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
+        ], className='drilldown-graph-container'),
+        html.Div([
             dcc.Graph(figure=fig_load, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
             dcc.Graph(figure=fig_cpu, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container')
-    ], className='drilldown-graphs-grid four-cols')
+    ], className='drilldown-graphs-grid six-cols')
 
 
 def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
                                    load_time_label: str = 'Avg Dashboard Load Time (sec)',
                                    selected_machine: str = None) -> html.Div:
     """Create drill-down graphs for multi-machine platforms (Tableau/Alteryx)."""
-    from data import get_historical_stats
+    from data import get_historical_stats, get_ticket_history
 
     timestamps = data['timestamps']
     machines = data['machines']
@@ -741,6 +788,26 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
     _add_above_avg_markers(fig_cpu, timestamps, aggregated['cpu_percent']['values'], cpu_stats['average'])
     fig_cpu.update_layout(yaxis=dict(range=[0, 105]))
 
+    # Graph 5: Open Tickets History - line chart with avg/peak
+    ticket_history = get_ticket_history(platform_id, days=30)
+    fig_tickets = _create_base_figure('Open Tickets (30 days)')
+    fig_tickets.add_trace(go.Scatter(
+        x=ticket_history['timestamps'], y=ticket_history['open_tickets']['values'],
+        mode='lines',
+        name='Open Tickets',
+        line=dict(color=GRAPH_COLORS['info'], width=2),
+        fill='tozeroy',
+        fillcolor='rgba(85, 195, 240, 0.1)'
+    ))
+    fig_tickets.add_trace(go.Scatter(
+        x=ticket_history['timestamps'], y=ticket_history['overdue_tickets']['values'],
+        mode='lines',
+        name='Breached',
+        line=dict(color=GRAPH_COLORS['danger'], width=2)
+    ))
+    ticket_stats = get_historical_stats(ticket_history['open_tickets']['values'], 'month')
+    _add_avg_peak_lines(fig_tickets, ticket_stats['average'], ticket_stats['peak'], 'month')
+
     # Create machine status summary with clickable buttons
     machine_status_items = []
     for machine_name, machine_data in machines.items():
@@ -827,8 +894,11 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             ], className='drilldown-graph-container'),
             html.Div([
                 dcc.Graph(figure=fig_cpu, config={'displayModeBar': False}, className='drilldown-graph')
+            ], className='drilldown-graph-container'),
+            html.Div([
+                dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
             ], className='drilldown-graph-container')
-        ], className='drilldown-graphs-grid four-cols')
+        ], className='drilldown-graphs-grid five-cols')
     ])
 
 
