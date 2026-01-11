@@ -533,10 +533,10 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
             dcc.Graph(figure=fig_users, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
-            dcc.Graph(figure=fig_pipelines, config={'displayModeBar': False}, className='drilldown-graph')
+            dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
-            dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
+            dcc.Graph(figure=fig_pipelines, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container')
     ], className='drilldown-graphs-grid')
 
@@ -654,13 +654,13 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
             dcc.Graph(figure=fig_users, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
-            dcc.Graph(figure=fig_memory, config={'displayModeBar': False}, className='drilldown-graph')
+            dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
             dcc.Graph(figure=fig_pipelines, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
-            dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
+            dcc.Graph(figure=fig_memory, config={'displayModeBar': False}, className='drilldown-graph')
         ], className='drilldown-graph-container'),
         html.Div([
             dcc.Graph(figure=fig_load, config={'displayModeBar': False}, className='drilldown-graph')
@@ -881,10 +881,13 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             ], className='machine-status-header'),
             html.Div(machine_status_items, className='machine-status-grid')
         ], className='machine-status-container'),
-        # Graphs
+        # Graphs - Row 1: Users, Tickets; Row 2: Memory, Load Time, CPU
         html.Div([
             html.Div([
                 dcc.Graph(figure=fig_users, config={'displayModeBar': False}, className='drilldown-graph')
+            ], className='drilldown-graph-container'),
+            html.Div([
+                dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
             ], className='drilldown-graph-container'),
             html.Div([
                 dcc.Graph(figure=fig_memory, config={'displayModeBar': False}, className='drilldown-graph')
@@ -894,9 +897,6 @@ def create_multi_machine_drilldown(data: Dict[str, Any], platform_name: str,
             ], className='drilldown-graph-container'),
             html.Div([
                 dcc.Graph(figure=fig_cpu, config={'displayModeBar': False}, className='drilldown-graph')
-            ], className='drilldown-graph-container'),
-            html.Div([
-                dcc.Graph(figure=fig_tickets, config={'displayModeBar': False}, className='drilldown-graph')
             ], className='drilldown-graph-container')
         ], className='drilldown-graphs-grid five-cols')
     ])
