@@ -648,8 +648,8 @@ def update_modal(ticket_data, close_btn, footer_close_btn):
             ticket_data["priority"],  # modal-priority-badge children
             priority_style,  # modal-priority-badge style
             ticket_data.get("created_date", "N/A"),  # modal-created-date
-            ticket_data.get("requested_by", "Unavailable"),  # modal-requested-by
-            ticket_data.get("assigned_to", "Unavailable"),  # modal-assigned-to
+            ticket_data.get("requested_by", "Hidden"),  # modal-requested-by
+            ticket_data.get("assigned_to", "Hidden"),  # modal-assigned-to
             ticket_data.get("last_updated", "N/A"),  # modal-last-updated
             ticket_data.get("description", "No description available."),  # modal-description
             servicenow_url,  # modal-servicenow-btn href
