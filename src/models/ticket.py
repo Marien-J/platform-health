@@ -74,8 +74,8 @@ class Ticket:
     priority: TicketPriority
     status: TicketStatus = TicketStatus.OPEN
     owner: str = "Unassigned"
-    requested_by: str = "Unavailable"
-    assigned_to: str = "Unavailable"
+    requested_by: str = "Hidden"
+    assigned_to: str = "Hidden"
     created_date: str = ""
     last_updated: str = ""
     age: str = "0d"
@@ -201,8 +201,8 @@ class Ticket:
                 priority=priority,
                 status=status,
                 owner=row.get("service_task_assignment_group_desc", "Unassigned"),
-                requested_by=row.get("requested_by", "Unavailable"),
-                assigned_to=row.get("assigned_to", "Unavailable"),
+                requested_by=row.get("requested_by", "Hidden"),
+                assigned_to=row.get("assigned_to", "Hidden"),
                 created_date=created_date,
                 last_updated=last_updated,
                 age=age_str,

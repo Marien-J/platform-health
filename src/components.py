@@ -253,8 +253,8 @@ def create_ticket_table(tickets: List[Dict[str, Any]]) -> html.Div:
                         )
                     ),
                     html.Td(ticket["age"], className="text-muted"),
-                    html.Td(ticket.get("requested_by", "Unavailable")),
-                    html.Td(ticket.get("assigned_to", "Unavailable")),
+                    html.Td(ticket.get("requested_by", "Hidden")),
+                    html.Td(ticket.get("assigned_to", "Hidden")),
                 ],
                 id={"type": "ticket-row", "index": ticket["id"]},
                 className="ticket-row-clickable",
