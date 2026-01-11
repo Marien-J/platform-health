@@ -22,7 +22,7 @@ import math
 import random
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from config import settings
 from models import (
@@ -192,9 +192,7 @@ def get_tickets() -> List[Dict[str, Any]]:
 
     # Sort by priority then age
     priority_order = {"High": 0, "Medium": 1, "Low": 2}
-    active_tickets.sort(
-        key=lambda t: (priority_order.get(t.priority.value, 2), -t.age_days)
-    )
+    active_tickets.sort(key=lambda t: (priority_order.get(t.priority.value, 2), -t.age_days))
 
     return [t.to_dict() for t in active_tickets]
 
@@ -268,7 +266,8 @@ def get_pipeline_summary(platform_id: str = "edlap") -> Dict[str, int]:
             "total": total,
         }
 
-    return summary.to_dict()
+    result: Dict[str, int] = summary.to_dict()
+    return result
 
 
 def get_historical_stats(values: List[float], period: str = "month") -> Dict[str, float]:
@@ -308,7 +307,7 @@ def get_historical_stats(values: List[float], period: str = "month") -> Dict[str
     }
 
 
-def get_ticket_history(platform_id: str = None, days: int = 30) -> Dict[str, Any]:
+def get_ticket_history(platform_id: Optional[str] = None, days: int = 30) -> Dict[str, Any]:
     """
     Get ticket history data for line graphs.
 
@@ -408,7 +407,7 @@ def _get_ticket_counts_by_platform() -> Dict[str, int]:
     """Get count of active tickets per platform."""
     provider = get_data_provider()
     tickets = provider.load_tickets()
-    counts = defaultdict(int)
+    counts: Dict[str, int] = defaultdict(int)
 
     for ticket in tickets:
         if ticket.is_active:
@@ -417,9 +416,7 @@ def _get_ticket_counts_by_platform() -> Dict[str, int]:
     return dict(counts)
 
 
-def _build_edlap_platform(
-    ticket_counts: Dict[str, int], failures: int, delays: int
-) -> Platform:
+def _build_edlap_platform(ticket_counts: Dict[str, int], failures: int, delays: int) -> Platform:
     """Build EDLAP platform object with current status."""
     thresholds = STATUS_THRESHOLDS["edlap"]["pipeline_failures"]
 
@@ -436,15 +433,9 @@ def _build_edlap_platform(
         subtitle="Enterprise Data Lake",
         status=status,
         metrics=PlatformMetrics(
-            primary=PlatformMetric(
-                label="Pipeline Failures", value=str(failures), threshold="< 5"
-            ),
-            secondary=PlatformMetric(
-                label="Data Delays", value=str(delays), threshold="< 15"
-            ),
-            tertiary=PlatformMetric(
-                label="Open Tickets", value=str(ticket_counts.get("edlap", 0))
-            ),
+            primary=PlatformMetric(label="Pipeline Failures", value=str(failures), threshold="< 5"),
+            secondary=PlatformMetric(label="Data Delays", value=str(delays), threshold="< 15"),
+            tertiary=PlatformMetric(label="Open Tickets", value=str(ticket_counts.get("edlap", 0))),
         ),
         trend=PlatformTrend.STABLE,
     )
@@ -480,9 +471,7 @@ def _build_sapbw_platform(
             secondary=PlatformMetric(
                 label="Storage", value=f"{storage:.1f} TB", threshold="< 60 TB"
             ),
-            tertiary=PlatformMetric(
-                label="Open Tickets", value=str(ticket_counts.get("sapbw", 0))
-            ),
+            tertiary=PlatformMetric(label="Open Tickets", value=str(ticket_counts.get("sapbw", 0))),
         ),
         trend=trend,
     )
@@ -499,9 +488,7 @@ def _build_tableau_platform(ticket_counts: Dict[str, int]) -> Platform:
         subtitle="Analytics & Reporting",
         status=status,
         metrics=PlatformMetrics(
-            primary=PlatformMetric(
-                label="Avg Load Time", value="4.2s", threshold="< 5s"
-            ),
+            primary=PlatformMetric(label="Avg Load Time", value="4.2s", threshold="< 5s"),
             secondary=PlatformMetric(label="CPU Peak", value="72%", threshold="< 80%"),
             tertiary=PlatformMetric(label="Open Tickets", value=str(ticket_count)),
         ),
@@ -517,12 +504,8 @@ def _build_alteryx_platform(ticket_counts: Dict[str, int]) -> Platform:
         subtitle="Self-Service Analytics",
         status=PlatformStatus.HEALTHY,
         metrics=PlatformMetrics(
-            primary=PlatformMetric(
-                label="Job Failures", value="1", threshold="< 5"
-            ),
-            secondary=PlatformMetric(
-                label="Queue Depth", value="3", threshold="< 10"
-            ),
+            primary=PlatformMetric(label="Job Failures", value="1", threshold="< 5"),
+            secondary=PlatformMetric(label="Queue Depth", value="3", threshold="< 10"),
             tertiary=PlatformMetric(
                 label="Open Tickets", value=str(ticket_counts.get("alteryx", 0))
             ),
@@ -565,13 +548,13 @@ def _add_noise(value: float, noise_percent: float = 0.1) -> float:
 
 
 def _inject_outliers(
-    values: List[float],
+    values: Sequence[Union[int, float]],
     outlier_chance: float = 0.02,
     outlier_magnitude: float = 1.5,
 ) -> Tuple[List[float], List[int]]:
     """Inject outliers into a time series and return indices of outliers."""
-    outlier_indices = []
-    result = values.copy()
+    outlier_indices: List[int] = []
+    result: List[float] = [float(v) for v in values]
     for i in range(len(result)):
         if random.random() < outlier_chance:
             result[i] = result[i] * outlier_magnitude
@@ -579,7 +562,9 @@ def _inject_outliers(
     return result, outlier_indices
 
 
-def detect_outliers(values: List[float], threshold: Dict[str, float]) -> List[Dict[str, Any]]:
+def detect_outliers(
+    values: Sequence[Union[int, float]], threshold: Mapping[str, Union[int, float]]
+) -> List[Dict[str, Any]]:
     """Detect outliers based on threshold configuration."""
     outliers = []
     for i, val in enumerate(values):
@@ -600,9 +585,9 @@ def get_edlap_performance_data(hours: int = 24) -> Dict[str, Any]:
     random.seed(settings.dashboard.demo_random_seed)
 
     # Users - typical 50-150 range with daily pattern
-    users = []
+    users: List[float] = []
     for ts in timestamps:
-        base = 80
+        base = 80.0
         val = _add_daily_pattern(base, ts.hour, amplitude=0.6)
         val = _add_noise(val, 0.15)
         users.append(max(5, round(val)))
@@ -616,17 +601,17 @@ def get_edlap_performance_data(hours: int = 24) -> Dict[str, Any]:
         total_pipelines.append(val)
 
     # Failed pipelines - occasional spikes
-    failed_pipelines = []
+    failed_pipelines: List[float] = []
     for ts in timestamps:
-        base = 2
+        base = 2.0
         val = base + random.randint(0, 3)
         failed_pipelines.append(val)
     failed_pipelines, _ = _inject_outliers(failed_pipelines, 0.03, 3.0)
 
     # Delayed pipelines - more during business hours
-    delayed_pipelines = []
+    delayed_pipelines: List[float] = []
     for ts in timestamps:
-        base = 5
+        base = 5.0
         val = _add_daily_pattern(base, ts.hour, amplitude=0.4)
         val = _add_noise(val, 0.2)
         delayed_pipelines.append(max(0, round(val)))
@@ -681,7 +666,7 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
 
     if bw_records:
         # Use real data - take the most recent records
-        recent_records = bw_records[-min(len(bw_records), 289):]
+        recent_records = bw_records[-min(len(bw_records), 289) :]
 
         timestamps = []
         memory_tb = []
@@ -706,7 +691,7 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
                 hour = int(ts_str.split(" ")[1].split(":")[0])
             except (IndexError, ValueError):
                 hour = 12
-            base = 45
+            base = 45.0
             val = _add_daily_pattern(base, hour, amplitude=0.8)
             val = _add_noise(val, 0.12)
             users.append(max(3, round(val)))
@@ -723,7 +708,7 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
         # CPU percent - correlate with memory
         cpu_percent = []
         for i in range(len(timestamps)):
-            base = 35
+            base = 35.0
             memory_factor = memory_tb[i] / 19 if i < len(memory_tb) else 1.0
             val = base * (0.7 + 0.5 * memory_factor)
             val = _add_noise(val, 0.15)
@@ -738,7 +723,7 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
 
         users = []
         for ts in generated_timestamps:
-            base = 45
+            base = 45.0
             val = _add_daily_pattern(base, ts.hour, amplitude=0.8)
             val = _add_noise(val, 0.12)
             users.append(max(3, round(val)))
@@ -787,7 +772,9 @@ def get_sapbw_performance_data(hours: int = 24) -> Dict[str, Any]:
         },
         "cpu_percent": {
             "values": [min(100, v) for v in cpu_percent],
-            "outliers": detect_outliers([min(100, v) for v in cpu_percent], thresholds["cpu_percent"]),
+            "outliers": detect_outliers(
+                [min(100, v) for v in cpu_percent], thresholds["cpu_percent"]
+            ),
         },
     }
 
@@ -810,33 +797,33 @@ def _generate_multi_machine_data(
         random.seed(44 + m)
 
         # Users per machine
-        users = []
+        users: List[float] = []
         for ts in timestamps:
             base = base_users / machine_count
             val = _add_daily_pattern(base, ts.hour, amplitude=0.7)
             val = _add_noise(val, 0.2)
             if m < 2:
                 val *= 1.3
-            users.append(max(0, round(val)))
+            users.append(float(max(0, round(val))))
 
         # Memory percent
-        memory_pct = []
+        memory_pct: List[float] = []
         for i, ts in enumerate(timestamps):
             base = base_memory
             user_factor = users[i] / (base_users / machine_count)
             val = base * (0.7 + 0.3 * user_factor)
             val = _add_noise(val, 0.1)
-            memory_pct.append(min(100, round(val, 1)))
+            memory_pct.append(float(min(100, round(val, 1))))
         memory_pct, _ = _inject_outliers(memory_pct, 0.02, 1.2)
 
         # CPU percent
-        cpu_pct = []
+        cpu_pct: List[float] = []
         for i, ts in enumerate(timestamps):
             base = base_cpu
             user_factor = users[i] / (base_users / machine_count)
             val = base * (0.6 + 0.4 * user_factor)
             val = _add_noise(val, 0.15)
-            cpu_pct.append(min(100, round(val, 1)))
+            cpu_pct.append(float(min(100, round(val, 1))))
         cpu_pct, _ = _inject_outliers(cpu_pct, 0.025, 1.3)
 
         machines[machine_name] = {
@@ -906,10 +893,22 @@ def get_tableau_performance_data(hours: int = 24) -> Dict[str, Any]:
         "machines": machines,
         "machine_outliers": machine_outliers,
         "aggregated": {
-            "users": {"values": total_users, "outliers": detect_outliers(total_users, thresholds["users"])},
-            "memory_percent": {"values": avg_memory, "outliers": detect_outliers(avg_memory, thresholds["memory_percent"])},
-            "load_time_sec": {"values": load_times, "outliers": detect_outliers(load_times, thresholds["load_time_sec"])},
-            "cpu_percent": {"values": avg_cpu, "outliers": detect_outliers(avg_cpu, thresholds["cpu_percent"])},
+            "users": {
+                "values": total_users,
+                "outliers": detect_outliers(total_users, thresholds["users"]),
+            },
+            "memory_percent": {
+                "values": avg_memory,
+                "outliers": detect_outliers(avg_memory, thresholds["memory_percent"]),
+            },
+            "load_time_sec": {
+                "values": load_times,
+                "outliers": detect_outliers(load_times, thresholds["load_time_sec"]),
+            },
+            "cpu_percent": {
+                "values": avg_cpu,
+                "outliers": detect_outliers(avg_cpu, thresholds["cpu_percent"]),
+            },
         },
     }
 
@@ -972,9 +971,21 @@ def get_alteryx_performance_data(hours: int = 24) -> Dict[str, Any]:
         "machines": machines,
         "machine_outliers": machine_outliers,
         "aggregated": {
-            "users": {"values": total_users, "outliers": detect_outliers(total_users, thresholds["users"])},
-            "memory_percent": {"values": avg_memory, "outliers": detect_outliers(avg_memory, thresholds["memory_percent"])},
-            "load_time_sec": {"values": load_times, "outliers": detect_outliers(load_times, thresholds["load_time_sec"])},
-            "cpu_percent": {"values": avg_cpu, "outliers": detect_outliers(avg_cpu, thresholds["cpu_percent"])},
+            "users": {
+                "values": total_users,
+                "outliers": detect_outliers(total_users, thresholds["users"]),
+            },
+            "memory_percent": {
+                "values": avg_memory,
+                "outliers": detect_outliers(avg_memory, thresholds["memory_percent"]),
+            },
+            "load_time_sec": {
+                "values": load_times,
+                "outliers": detect_outliers(load_times, thresholds["load_time_sec"]),
+            },
+            "cpu_percent": {
+                "values": avg_cpu,
+                "outliers": detect_outliers(avg_cpu, thresholds["cpu_percent"]),
+            },
         },
     }

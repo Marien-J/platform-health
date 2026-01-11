@@ -23,6 +23,7 @@ from typing import Optional
 
 class Environment(str, Enum):
     """Application environment types."""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -30,6 +31,7 @@ class Environment(str, Enum):
 
 class DataSourceType(str, Enum):
     """Supported data source types for the dashboard."""
+
     CSV = "csv"  # Local or mounted CSV files
     AZURE_BLOB = "azure_blob"  # Azure Blob Storage
     DATABRICKS = "databricks"  # Direct Databricks connection
@@ -38,6 +40,7 @@ class DataSourceType(str, Enum):
 @dataclass(frozen=True)
 class ThresholdLevel:
     """Threshold configuration for a single metric."""
+
     healthy: float
     attention: float
     # Values above attention are considered critical
@@ -46,6 +49,7 @@ class ThresholdLevel:
 @dataclass(frozen=True)
 class OutlierThreshold:
     """Outlier detection thresholds."""
+
     warning: float
     critical: float
 
@@ -53,6 +57,7 @@ class OutlierThreshold:
 @dataclass(frozen=True)
 class EdlapThresholds:
     """EDLAP platform thresholds."""
+
     pipeline_failures: ThresholdLevel = field(
         default_factory=lambda: ThresholdLevel(healthy=5, attention=10)
     )
@@ -64,6 +69,7 @@ class EdlapThresholds:
 @dataclass(frozen=True)
 class SapbwThresholds:
     """SAP B/W platform thresholds."""
+
     memory_tb: ThresholdLevel = field(
         default_factory=lambda: ThresholdLevel(healthy=18, attention=22)
     )
@@ -75,6 +81,7 @@ class SapbwThresholds:
 @dataclass(frozen=True)
 class TableauThresholds:
     """Tableau platform thresholds."""
+
     load_time_sec: ThresholdLevel = field(
         default_factory=lambda: ThresholdLevel(healthy=5, attention=8)
     )
@@ -86,6 +93,7 @@ class TableauThresholds:
 @dataclass(frozen=True)
 class AlteryxThresholds:
     """Alteryx platform thresholds."""
+
     job_failures: ThresholdLevel = field(
         default_factory=lambda: ThresholdLevel(healthy=3, attention=7)
     )
@@ -97,6 +105,7 @@ class AlteryxThresholds:
 @dataclass(frozen=True)
 class PlatformThresholds:
     """All platform thresholds."""
+
     edlap: EdlapThresholds = field(default_factory=EdlapThresholds)
     sapbw: SapbwThresholds = field(default_factory=SapbwThresholds)
     tableau: TableauThresholds = field(default_factory=TableauThresholds)
@@ -106,6 +115,7 @@ class PlatformThresholds:
 @dataclass(frozen=True)
 class OutlierThresholds:
     """Outlier detection thresholds for all platforms."""
+
     edlap_users: OutlierThreshold = field(
         default_factory=lambda: OutlierThreshold(warning=150, critical=200)
     )
@@ -164,6 +174,7 @@ class OutlierThresholds:
 @dataclass(frozen=True)
 class MachineConfig:
     """Configuration for multi-machine platforms."""
+
     count: int
     prefix: str
 
@@ -171,19 +182,19 @@ class MachineConfig:
 @dataclass(frozen=True)
 class MachineConfigs:
     """Machine configurations for all multi-machine platforms."""
-    tableau: MachineConfig = field(
-        default_factory=lambda: MachineConfig(count=8, prefix="TAB-SRV")
-    )
-    alteryx: MachineConfig = field(
-        default_factory=lambda: MachineConfig(count=8, prefix="ALT-WRK")
-    )
+
+    tableau: MachineConfig = field(default_factory=lambda: MachineConfig(count=8, prefix="TAB-SRV"))
+    alteryx: MachineConfig = field(default_factory=lambda: MachineConfig(count=8, prefix="ALT-WRK"))
 
 
 @dataclass
 class DataSourceConfig:
     """Data source configuration."""
+
     source_type: DataSourceType = DataSourceType.CSV
-    data_directory: Path = field(default_factory=lambda: Path(__file__).parent.parent.parent / "sample_data")
+    data_directory: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent.parent / "sample_data"
+    )
 
     # Azure Blob Storage settings (for production)
     azure_storage_account: Optional[str] = None
@@ -203,7 +214,11 @@ class DataSourceConfig:
     def from_environment(cls) -> "DataSourceConfig":
         """Create configuration from environment variables."""
         source_type_str = os.environ.get("DATA_SOURCE_TYPE", "csv").lower()
-        source_type = DataSourceType(source_type_str) if source_type_str in [e.value for e in DataSourceType] else DataSourceType.CSV
+        source_type = (
+            DataSourceType(source_type_str)
+            if source_type_str in [e.value for e in DataSourceType]
+            else DataSourceType.CSV
+        )
 
         # Determine data directory
         data_dir_env = os.environ.get("DATA_DIRECTORY")
@@ -229,6 +244,7 @@ class DataSourceConfig:
 @dataclass
 class ServiceNowConfig:
     """ServiceNow integration configuration."""
+
     instance: str = "aldiprod"
     base_url: str = field(init=False)
 
@@ -238,14 +254,13 @@ class ServiceNowConfig:
     @classmethod
     def from_environment(cls) -> "ServiceNowConfig":
         """Create configuration from environment variables."""
-        return cls(
-            instance=os.environ.get("SERVICENOW_INSTANCE", "aldiprod")
-        )
+        return cls(instance=os.environ.get("SERVICENOW_INSTANCE", "aldiprod"))
 
 
 @dataclass
 class DashboardConfig:
     """Dashboard display configuration."""
+
     debug: bool = True
     host: str = "0.0.0.0"
     port: int = 8050
@@ -289,6 +304,7 @@ class Settings:
         if memory > settings.thresholds.sapbw.memory_tb.attention:
             status = "attention"
     """
+
     environment: Environment = Environment.DEVELOPMENT
     data_source: DataSourceConfig = field(default_factory=DataSourceConfig.from_environment)
     servicenow: ServiceNowConfig = field(default_factory=ServiceNowConfig.from_environment)
@@ -301,7 +317,11 @@ class Settings:
     def from_environment(cls) -> "Settings":
         """Create settings from environment variables."""
         env_str = os.environ.get("ENVIRONMENT", "development").lower()
-        environment = Environment(env_str) if env_str in [e.value for e in Environment] else Environment.DEVELOPMENT
+        environment = (
+            Environment(env_str)
+            if env_str in [e.value for e in Environment]
+            else Environment.DEVELOPMENT
+        )
 
         return cls(
             environment=environment,

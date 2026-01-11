@@ -13,6 +13,7 @@ from .platform import PlatformId
 
 class PipelineStatus(str, Enum):
     """Pipeline execution status."""
+
     SUCCESSFUL = "successful"
     DELAYED = "delayed"
     FAILED = "failed"
@@ -45,7 +46,11 @@ class PipelineStatus(str, Enum):
             return cls.RUNNING
         elif "pending" in status_lower or "scheduled" in status_lower:
             return cls.PENDING
-        elif "within expected" in status_lower or original_lower == "g" or "succeeded" in original_lower:
+        elif (
+            "within expected" in status_lower
+            or original_lower == "g"
+            or "succeeded" in original_lower
+        ):
             return cls.SUCCESSFUL
         else:
             # Default to successful if status is unclear
@@ -70,6 +75,7 @@ class Pipeline:
         expected_end_ts: Expected end timestamp
         delay_seconds: Delay in seconds (0 if on time or early)
     """
+
     platform: PlatformId
     pipeline_id: str
     status: PipelineStatus
@@ -111,24 +117,24 @@ class Pipeline:
             Status string: 'Succeeded', 'Delayed', or 'Failed'
         """
         if self.platform == PlatformId.EDLAP:
-            if self.original_status == 'Failed':
-                return 'Failed'
-            elif self.original_status == 'Succeeded' and self.delay_seconds > 0:
-                return 'Delayed'
+            if self.original_status == "Failed":
+                return "Failed"
+            elif self.original_status == "Succeeded" and self.delay_seconds > 0:
+                return "Delayed"
             else:
-                return 'Succeeded'
+                return "Succeeded"
         elif self.platform == PlatformId.SAPBW:
             # Use transformed status (already parsed into self.status)
             if self.status == PipelineStatus.FAILED:
-                return 'Failed'
+                return "Failed"
             elif self.status == PipelineStatus.DELAYED:
-                return 'Delayed'
+                return "Delayed"
             elif self.status == PipelineStatus.NOT_APPLICABLE:
-                return 'Not Applicable'
+                return "Not Applicable"
             else:
-                return 'Succeeded'
+                return "Succeeded"
         else:
-            return 'Succeeded'
+            return "Succeeded"
 
     def to_dict(self) -> dict:
         """Convert to dictionary for data processing."""

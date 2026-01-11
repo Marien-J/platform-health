@@ -128,10 +128,10 @@ class DataProvider(ABC):
 
         # Use shown_status for counting (applies platform-specific logic)
         return PipelineSummary(
-            successful=sum(1 for p in platform_pipelines if p.shown_status == 'Succeeded'),
-            delayed=sum(1 for p in platform_pipelines if p.shown_status == 'Delayed'),
-            failed=sum(1 for p in platform_pipelines if p.shown_status == 'Failed'),
-            not_applicable=sum(1 for p in platform_pipelines if p.shown_status == 'Not Applicable'),
+            successful=sum(1 for p in platform_pipelines if p.shown_status == "Succeeded"),
+            delayed=sum(1 for p in platform_pipelines if p.shown_status == "Delayed"),
+            failed=sum(1 for p in platform_pipelines if p.shown_status == "Failed"),
+            not_applicable=sum(1 for p in platform_pipelines if p.shown_status == "Not Applicable"),
         )
 
     def get_bw_memory_stats(self) -> HistoricalStats:

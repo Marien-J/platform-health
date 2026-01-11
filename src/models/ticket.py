@@ -4,8 +4,7 @@ Ticket data models.
 Defines the Ticket entity and related types for ServiceNow integration.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -14,6 +13,7 @@ from .platform import PlatformId
 
 class TicketPriority(str, Enum):
     """Ticket priority levels."""
+
     HIGH = "High"
     MEDIUM = "Medium"
     LOW = "Low"
@@ -22,16 +22,17 @@ class TicketPriority(str, Enum):
     def from_task_type(cls, task_type: str) -> "TicketPriority":
         """Derive priority from ServiceNow task type code."""
         mapping = {
-            "INC": cls.HIGH,    # Incidents are high priority
+            "INC": cls.HIGH,  # Incidents are high priority
             "PRB": cls.MEDIUM,  # Problems are medium priority
-            "REQ": cls.LOW,     # Requests are low priority
-            "RITM": cls.LOW,    # Request items are low priority
+            "REQ": cls.LOW,  # Requests are low priority
+            "RITM": cls.LOW,  # Request items are low priority
         }
         return mapping.get(task_type.upper()[:3], cls.LOW)
 
 
 class TicketStatus(str, Enum):
     """Ticket status values."""
+
     OPEN = "Open"
     IN_PROGRESS = "In Progress"
     PENDING = "Pending"
@@ -63,6 +64,7 @@ class Ticket:
         country: Country context for the ticket
         service: Service category
     """
+
     id: str
     platform: PlatformId
     title: str
@@ -135,7 +137,7 @@ class Ticket:
         Returns:
             Ticket instance or None if parsing fails
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         try:
             # Map platform_id to our internal platform ids
@@ -148,7 +150,7 @@ class Ticket:
             platform_str = row.get("platform_id", "")
             platform = platform_map.get(
                 platform_str,
-                PlatformId.from_string(platform_str) if platform_str else PlatformId.EDLAP
+                PlatformId.from_string(platform_str) if platform_str else PlatformId.EDLAP,
             )
 
             # Parse created timestamp

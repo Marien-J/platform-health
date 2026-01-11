@@ -5,13 +5,14 @@ Defines the core Platform entity and related types used throughout
 the dashboard for representing platform health status.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
 
 class PlatformId(str, Enum):
     """Valid platform identifiers."""
+
     EDLAP = "edlap"
     SAPBW = "sapbw"
     TABLEAU = "tableau"
@@ -36,6 +37,7 @@ class PlatformId(str, Enum):
 
 class PlatformStatus(str, Enum):
     """Platform health status levels."""
+
     HEALTHY = "healthy"
     ATTENTION = "attention"
     CRITICAL = "critical"
@@ -48,6 +50,7 @@ class PlatformStatus(str, Enum):
 
 class PlatformTrend(str, Enum):
     """Trend direction for platform metrics."""
+
     RISING = "rising"
     STABLE = "stable"
     FALLING = "falling"
@@ -56,6 +59,7 @@ class PlatformTrend(str, Enum):
 @dataclass
 class PlatformMetric:
     """A single metric displayed on a platform card."""
+
     label: str
     value: str
     threshold: Optional[str] = None
@@ -64,6 +68,7 @@ class PlatformMetric:
 @dataclass
 class PlatformMetrics:
     """Collection of metrics for a platform card."""
+
     primary: PlatformMetric
     secondary: PlatformMetric
     tertiary: PlatformMetric
@@ -98,6 +103,7 @@ class Platform:
             trend=PlatformTrend.STABLE,
         )
     """
+
     id: PlatformId
     name: str
     subtitle: str
