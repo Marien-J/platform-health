@@ -543,7 +543,7 @@ def create_edlap_drilldown(data: Dict[str, Any]) -> html.Div:
 
 def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     """Create SAP B/W-specific drill-down graphs."""
-    from data import get_historical_stats, get_pipeline_summary, get_ticket_history
+    from data import get_historical_stats, get_pipeline_summary, get_ticket_history, get_bw_memory_stats_30days
 
     timestamps = data['timestamps']
 
@@ -578,7 +578,9 @@ def create_sapbw_drilldown(data: Dict[str, Any]) -> html.Div:
     fig_memory.add_hline(y=memory_capacity, line_dash='solid', line_color='#393A34', line_width=1,
                          annotation_text=f'Max: {memory_capacity:.1f}TB', annotation_position='top left',
                          annotation_font_size=9, annotation_bgcolor='rgba(255,255,255,0.8)')
-    _add_threshold_lines(fig_memory, {'warning': 20, 'critical': 22}, memory_capacity)
+    # Use actual 30-day avg/peak from CSV data instead of hardcoded thresholds
+    memory_stats = get_bw_memory_stats_30days()
+    _add_avg_peak_lines(fig_memory, memory_stats['average'], memory_stats['peak'], '30d')
     fig_memory.update_layout(yaxis=dict(range=[0, memory_capacity + 2]))
 
     # Graph 3: Pipeline Status - BAR CHART (like EDLAP)
